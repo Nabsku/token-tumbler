@@ -1,0 +1,36 @@
+# Token Chaser
+
+Token Chaser is a Go daemon for rotating GitLab project and group access tokens.
+
+## Important Files
+
+- `main.go`: daemon startup, config loading, token processing loop, and secret-store dispatch.
+- `config.yaml`: example YAML config read from the current working directory.
+- `internal/types/repository`: config model, validation, token naming, and renewal rules.
+- `internal/project`: GitLab project token gathering, creation, renewal, and cleanup.
+- `internal/group`: GitLab group token gathering, creation, renewal, and cleanup.
+- `internal/secrets`: secret-store integrations; currently Vault KVv2.
+- `e2e`: slow Testcontainers-backed tests for GitLab CE and Vault.
+
+## Validation Commands
+
+```sh
+go test ./...
+go vet ./...
+go build ./...
+go test -tags=e2e -v ./e2e -timeout 30m
+```
+
+## Runtime Configuration
+
+Required env vars:
+
+- `GITLAB_URL`
+- `GITLAB_TOKEN`
+
+Required only when any config entry uses `secretStore: vault`:
+
+- `APPROLE_ID`
+- `APPROLE_SECRET`
+
+Use `secretStore: none` explicitly for intentional no-persistence entries.
