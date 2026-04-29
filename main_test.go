@@ -136,6 +136,21 @@ func TestMatchingProjectTokens_ShouldSkipForeignTokens(t *testing.T) {
 	assert.Equal(t, "tt-service-2026-01-01T00:00:00Z", got[0].Name)
 }
 
+func TestMatchingGroupTokens_ShouldSkipForeignTokens(t *testing.T) {
+	repo := &repository.Repository{GroupName: gitlab.Ptr("platform"), Name: "platform"}
+	tokens := []*gitlab.GroupAccessToken{
+		groupTokenNamed("foreign-token"),
+		revokedGroupTokenNamed("tt-platform-revoked"),
+		inactiveGroupTokenNamed("tt-platform-inactive"),
+		groupTokenNamed("tt-platform-2026-01-01T00:00:00Z"),
+	}
+
+	got := matchingGroupTokens(tokens, repo, "tt", 0)
+
+	require.Len(t, got, 1)
+	assert.Equal(t, "tt-platform-2026-01-01T00:00:00Z", got[0].Name)
+}
+
 func projectTokenNamed(name string) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.Name = name
@@ -152,6 +167,26 @@ func revokedProjectTokenNamed(name string) *gitlab.ProjectAccessToken {
 
 func inactiveProjectTokenNamed(name string) *gitlab.ProjectAccessToken {
 	token := projectTokenNamed(name)
+	token.Active = false
+	return token
+}
+
+func groupTokenNamed(name string) *gitlab.GroupAccessToken {
+	token := &gitlab.GroupAccessToken{}
+	token.Name = name
+	token.Active = true
+	return token
+}
+
+func revokedGroupTokenNamed(name string) *gitlab.GroupAccessToken {
+	token := groupTokenNamed(name)
+	token.Revoked = true
+	token.Active = false
+	return token
+}
+
+func inactiveGroupTokenNamed(name string) *gitlab.GroupAccessToken {
+	token := groupTokenNamed(name)
 	token.Active = false
 	return token
 }

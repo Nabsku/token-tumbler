@@ -114,34 +114,38 @@ func writeSecret(ctx context.Context, entry *repository.Repository, secret secre
 }
 
 func matchingGroupTokens(tokens []*gitlab.GroupAccessToken, entry *repository.Repository, prefix string, index int) []*gitlab.GroupAccessToken {
-	l := logger.GetLogger()
-	var matches []*gitlab.GroupAccessToken
-	for _, token := range tokens {
-		if token.Revoked || !token.Active {
-			continue
-		}
-		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
-			matches = append(matches, token)
-		} else if err != nil {
-			l.Debug(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
-			continue
-		}
-	}
-	return matches
+	return matchingTokens(tokens, entry, prefix, *entry.GroupName, index, false, func(token *gitlab.GroupAccessToken) tokenState {
+		return tokenState{name: token.Name, active: token.Active, revoked: token.Revoked}
+	})
 }
 
 func matchingProjectTokens(tokens []*gitlab.ProjectAccessToken, entry *repository.Repository, prefix string, index int) []*gitlab.ProjectAccessToken {
+	return matchingTokens(tokens, entry, prefix, *entry.RepoName, index, true, func(token *gitlab.ProjectAccessToken) tokenState {
+		return tokenState{name: token.Name, active: token.Active, revoked: token.Revoked}
+	})
+}
+
+type tokenState struct {
+	name    string
+	active  bool
+	revoked bool
+}
+
+func matchingTokens[T any](tokens []T, entry *repository.Repository, prefix string, target string, index int, logMatches bool, state func(T) tokenState) []T {
 	l := logger.GetLogger()
-	var matches []*gitlab.ProjectAccessToken
+	var matches []T
 	for _, token := range tokens {
-		if token.Revoked || !token.Active {
+		current := state(token)
+		if current.revoked || !current.active {
 			continue
 		}
-		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
-			l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", token.Name))
+		if ok, err := entry.ParseTokenName(prefix, current.name); ok {
+			if logMatches {
+				l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", current.name))
+			}
 			matches = append(matches, token)
 		} else if err != nil {
-			l.Debug(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
+			l.Debug(fmt.Errorf(errorString, target, index, err).Error())
 			continue
 		}
 	}
