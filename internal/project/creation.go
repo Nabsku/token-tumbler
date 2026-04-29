@@ -1,13 +1,17 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nabsku/token-chaser/internal/logger"
 	"github.com/nabsku/token-chaser/internal/types/repository"
+	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/api/client-go"
 )
+
+var ErrInvalidProjectTokenResponse = errors.New("invalid project access token response")
 
 func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
 	l := logger.GetLogger()
@@ -26,6 +30,9 @@ func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int, entry *re
 	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
 
 	if err != nil {
+		return nil, err
+	}
+	if err := validateProjectAccessTokenResponse(token); err != nil {
 		return nil, err
 	}
 
@@ -58,8 +65,24 @@ func RenewProjectAccessToken(gitlabClient *gitlab.Client, projectID int, entry *
 	if err != nil {
 		return nil, err
 	}
+	if err := validateProjectAccessTokenResponse(token); err != nil {
+		return nil, err
+	}
 
 	return token, nil
+}
+
+func validateProjectAccessTokenResponse(token *gitlab.ProjectAccessToken) error {
+	if token == nil {
+		return fmt.Errorf("%w: token is nil", ErrInvalidProjectTokenResponse)
+	}
+	if token.ID == 0 {
+		return fmt.Errorf("%w: token ID is empty", ErrInvalidProjectTokenResponse)
+	}
+	if strings.TrimSpace(token.Token) == "" {
+		return fmt.Errorf("%w: token value is empty", ErrInvalidProjectTokenResponse)
+	}
+	return nil
 }
 
 func createProjectAccessTokenOptions(tokenName string, scopes []string, expiry *time.Time) *gitlab.CreateProjectAccessTokenOptions {

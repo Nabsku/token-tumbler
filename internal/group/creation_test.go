@@ -1,12 +1,14 @@
 package group
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/nabsku/token-chaser/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/api/client-go"
 )
 
 func TestCreateGroupAccessTokenOptions(t *testing.T) {
@@ -30,4 +32,34 @@ func TestRenewGroupAccessToken_ShouldValidateTokenNameBeforeGitLabCall(t *testin
 	require.Error(t, err)
 	assert.Nil(t, token)
 	assert.Contains(t, err.Error(), "cannot be empty")
+}
+
+func TestValidateGroupAccessTokenResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		token *gitlab.GroupAccessToken
+	}{
+		{name: "nil token"},
+		{name: "missing ID", token: groupAccessTokenResponse(0, "secret")},
+		{name: "missing token value", token: groupAccessTokenResponse(1, "")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGroupAccessTokenResponse(tt.token)
+
+			require.Error(t, err)
+			assert.True(t, errors.Is(err, ErrInvalidGroupTokenResponse))
+		})
+	}
+
+	err := validateGroupAccessTokenResponse(groupAccessTokenResponse(1, "secret"))
+	require.NoError(t, err)
+}
+
+func groupAccessTokenResponse(id int, tokenValue string) *gitlab.GroupAccessToken {
+	token := &gitlab.GroupAccessToken{}
+	token.ID = id
+	token.Token = tokenValue
+	return token
 }
