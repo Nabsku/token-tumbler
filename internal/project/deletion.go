@@ -15,19 +15,16 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 
 	l.Info(fmt.Sprintf("Checking for old tokens in repo %s", *repo.RepoName))
 
-	opts := &gitlab.ListProjectsOptions{
-		Search: gitlab.Ptr(*repo.RepoName),
-	}
-	projects, _, err := gitlabClient.Projects.ListProjects(opts)
+	project, err := GatherProject(gitlabClient, repo)
 	if err != nil {
 		l.Error(fmt.Errorf("error fetching project %s: %v", *repo.RepoName, err).Error())
 		return err
 	}
-	if len(projects) == 0 {
+	if project == nil {
 		return fmt.Errorf("no projects found for %s", *repo.RepoName)
 	}
 
-	tokens, _, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projects[0].ID, nil)
+	tokens, _, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(project.ID, nil)
 	if err != nil {
 		l.Error(fmt.Errorf("error fetching project tokens for %s: %v", *repo.RepoName, err).Error())
 		return err
@@ -73,7 +70,7 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 
 		if shouldDelete {
 			l.Debug(fmt.Sprintf("Deleting token %s from repo %s", token.Name, *repo.RepoName))
-			_, err := gitlabClient.ProjectAccessTokens.RevokeProjectAccessToken(projects[0].ID, token.ID)
+			_, err := gitlabClient.ProjectAccessTokens.RevokeProjectAccessToken(project.ID, token.ID)
 			if err != nil {
 				l.Error(fmt.Errorf("error deleting token %s: %v", token.Name, err).Error())
 				revokeErr = errors.Join(revokeErr, fmt.Errorf("deleting token %s from project %s: %w", token.Name, *repo.RepoName, err))

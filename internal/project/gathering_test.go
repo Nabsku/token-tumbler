@@ -20,9 +20,8 @@ func TestGatherProject(t *testing.T) {
 		wantID    int
 		wantError error
 	}{
-		{name: "single project", status: http.StatusOK, response: `[{"id":42,"name":"service","path_with_namespace":"org/service"}]`, wantID: 42},
-		{name: "too many projects", status: http.StatusOK, response: `[{"id":1},{"id":2}]`, wantError: ErrTooManyProjectsInSearch},
-		{name: "no projects", status: http.StatusOK, response: `[]`, wantError: ErrNoProjectsInSearch},
+		{name: "single project", status: http.StatusOK, response: `{"id":42,"name":"service","path_with_namespace":"org/service"}`, wantID: 42},
+		{name: "no project", status: http.StatusNotFound, response: `{"message":"404 Project Not Found"}`, wantError: ErrNoProjectsInSearch},
 		{name: "api error", status: http.StatusInternalServerError, response: `{"message":"boom"}`, wantError: assert.AnError},
 	}
 
@@ -30,8 +29,7 @@ func TestGatherProject(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodGet, r.Method)
-				assert.Equal(t, "/api/v4/projects", r.URL.Path)
-				assert.Equal(t, "service", r.URL.Query().Get("search"))
+				assert.Equal(t, "/api/v4/projects/service", r.URL.Path)
 				w.WriteHeader(tt.status)
 				_, _ = w.Write([]byte(tt.response))
 			})

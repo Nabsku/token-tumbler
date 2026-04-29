@@ -2,6 +2,8 @@ package project
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/nabsku/token-chaser/internal/types/repository"
 
 	"gitlab.com/gitlab-org/api/client-go"
@@ -11,22 +13,18 @@ var ErrTooManyProjectsInSearch = errors.New("there are too many projects found i
 var ErrNoProjectsInSearch = errors.New("no projects found in your query")
 
 func GatherProject(gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Project, error) {
-	opts := &gitlab.ListProjectsOptions{
-		Search: gitlab.Ptr(*entry.RepoName),
-	}
-	project, _, err := gitlabClient.Projects.ListProjects(opts)
+	project, response, err := gitlabClient.Projects.GetProject(*entry.RepoName, nil)
 	if err != nil {
+		if response != nil && response.StatusCode == http.StatusNotFound {
+			return nil, ErrNoProjectsInSearch
+		}
 		return nil, err
 	}
-
-	if len(project) > 1 {
-		return nil, ErrTooManyProjectsInSearch
-	}
-	if len(project) == 0 {
+	if project == nil {
 		return nil, ErrNoProjectsInSearch
 	}
 
-	return project[0], nil
+	return project, nil
 }
 
 func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int) ([]*gitlab.ProjectAccessToken, error) {

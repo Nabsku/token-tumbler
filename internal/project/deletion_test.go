@@ -69,9 +69,8 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testin
 	deleteCalls := make([]string, 0)
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
-			assert.Equal(t, repoName, r.URL.Query().Get("search"))
-			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/service":
+			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-service-only","active":true,"created_at":%q},
@@ -98,8 +97,8 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 	deleteCalls := make([]string, 0)
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/service":
+			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-service-oldest","active":true,"created_at":%q},
@@ -135,8 +134,8 @@ func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
 	repo := &repository.Repository{Name: "service", RepoName: &repoName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/service":
+			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-service-old","active":true,"created_at":%q},
@@ -162,8 +161,8 @@ func TestDeleteProjectTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) 
 	deleteCalls := make([]string, 0)
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/service":
+			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-service-revoked","active":false,"revoked":true,"created_at":%q},
@@ -195,8 +194,8 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testi
 	deleteCalls := make([]string, 0)
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/service":
+			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-service-old","active":true,"created_at":%q},
@@ -221,8 +220,8 @@ func TestDeleteProjectTokens_ShouldReturnErrorWhenProjectIsMissing(t *testing.T)
 	repoName := "missing"
 	repo := &repository.Repository{Name: "service", RepoName: &repoName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
 	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/api/v4/projects", r.URL.Path)
-		_, _ = w.Write([]byte(`[]`))
+		assert.Equal(t, "/api/v4/projects/missing", r.URL.Path)
+		http.Error(w, "not found", http.StatusNotFound)
 	})
 
 	err := DeleteProjectTokens(client, repo, "tc")
