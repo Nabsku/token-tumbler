@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/nabsku/token-tumbler/internal/gitlabutil"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 
 	"gitlab.com/gitlab-org/api/client-go"
@@ -30,19 +31,12 @@ func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int) ([]*gitl
 	options := &gitlab.ListProjectAccessTokensOptions{
 		ListOptions: gitlab.ListOptions{PerPage: 100},
 	}
-	var projectTokens []*gitlab.ProjectAccessToken
-
-	for {
-		pageTokens, response, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projectID, options)
-		if err != nil {
-			return nil, err
-		}
-		projectTokens = append(projectTokens, pageTokens...)
-		if response == nil || response.NextPage == 0 {
-			break
-		}
-		options.Page = response.NextPage
-	}
-
-	return projectTokens, nil
+	return gitlabutil.CollectPages(
+		func() ([]*gitlab.ProjectAccessToken, *gitlab.Response, error) {
+			return gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projectID, options)
+		},
+		func(page int) {
+			options.Page = page
+		},
+	)
 }
