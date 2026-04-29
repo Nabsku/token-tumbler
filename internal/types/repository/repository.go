@@ -117,6 +117,22 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("repository at index %d: %w", index, err)
 		}
 	}
+	if err := c.validateUniqueTokenTargets(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Config) validateUniqueTokenTargets() error {
+	seen := make(map[string]int, len(c.Repos))
+	for index := range c.Repos {
+		identity := c.Repos[index].tokenIdentity(c.Prefix)
+		firstIndex, exists := seen[identity]
+		if exists {
+			return fmt.Errorf("%w: duplicate token target at indexes %d and %d", ErrInvalidRepositoryConfig, firstIndex, index)
+		}
+		seen[identity] = index
+	}
 	return nil
 }
 
@@ -205,6 +221,24 @@ func (r *Repository) validateSecretStore() error {
 	default:
 		return fmt.Errorf("%w: unsupported secret store %q", ErrInvalidRepositoryConfig, r.SecretStore)
 	}
+}
+
+func (r *Repository) tokenIdentity(prefix string) string {
+	targetType := "project"
+	target := ""
+	if r.GroupName != nil {
+		targetType = "group"
+		target = strings.TrimSpace(*r.GroupName)
+	} else if r.RepoName != nil {
+		target = strings.TrimSpace(*r.RepoName)
+	}
+
+	return strings.Join([]string{
+		strings.TrimSpace(prefix),
+		targetType,
+		target,
+		strings.TrimSpace(r.Name),
+	}, "\x00")
 }
 
 func (r *Repository) ParseTokenName(prefix string, token string) (bool, error) {
