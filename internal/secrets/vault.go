@@ -2,9 +2,11 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/approle"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -85,12 +87,39 @@ func (vs *VaultSecret) Write(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	secretData := map[string]interface{}{
-		vs.Key: vs.Value,
+	secretData, err := vs.mergedSecretData(ctx)
+	if err != nil {
+		return err
 	}
 	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
 	if errPut != nil {
 		return errPut
 	}
 	return nil
+}
+
+func (vs *VaultSecret) mergedSecretData(ctx context.Context) (map[string]interface{}, error) {
+	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
+	if err != nil && !isVaultNotFound(err) {
+		return nil, fmt.Errorf("reading existing secret before merge: %w", err)
+	}
+
+	return mergeSecretData(secret, vs.Key, vs.Value), nil
+}
+
+func isVaultNotFound(err error) bool {
+	var responseError *vault.ResponseError
+	return errors.As(err, &responseError) && responseError.StatusCode == http.StatusNotFound
+}
+
+func mergeSecretData(secret *vault.KVSecret, key string, value string) map[string]interface{} {
+	secretData := make(map[string]interface{})
+	if secret != nil {
+		for existingKey, existingValue := range secret.Data {
+			secretData[existingKey] = existingValue
+		}
+	}
+	secretData[key] = value
+
+	return secretData
 }
