@@ -268,4 +268,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-Add a `LICENSE` file before publishing Token Tumbler as an open-source project.
+Token Tumbler is released under the [MIT License](./LICENSE).
