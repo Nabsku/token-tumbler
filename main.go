@@ -11,9 +11,12 @@ import (
 	"github.com/nabsku/token-chaser/internal/project"
 	"github.com/nabsku/token-chaser/internal/secrets"
 	"github.com/nabsku/token-chaser/internal/types/repository"
+	"net/http"
 
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/goccy/go-yaml"
@@ -27,8 +30,9 @@ var (
 )
 
 const (
-	delay              = time.Duration(2) * time.Second
-	errorString string = "while processing %v at index %v, the following error occurred: %w"
+	delay                   = time.Duration(2) * time.Second
+	operationTimeout        = 30 * time.Second
+	errorString      string = "while processing %v at index %v, the following error occurred: %w"
 )
 
 func readConfig() (*repository.Config, error) {
@@ -51,7 +55,11 @@ func readConfig() (*repository.Config, error) {
 
 func NewClient() (*gitlab.Client, error) {
 	newConfig := config.NewConfig()
-	gitlabClient, err := gitlab.NewClient(newConfig.GitlabToken, gitlab.WithBaseURL(newConfig.GitlabUrl))
+	gitlabClient, err := gitlab.NewClient(
+		newConfig.GitlabToken,
+		gitlab.WithBaseURL(newConfig.GitlabUrl),
+		gitlab.WithHTTPClient(&http.Client{Timeout: operationTimeout}),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -260,8 +268,53 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	return writeSecret(ctx, entry, secret)
 }
 
+func processRepository(ctx context.Context, gitlabClient *gitlab.Client, repo repository.Repository, index int, yamlConfig *repository.Config) {
+	l := logger.GetLogger()
+	entryCtx, cancel := context.WithTimeout(ctx, operationTimeout)
+	defer cancel()
+
+	if err := repo.CheckKeyRotationAndTokenAge(); err != nil {
+		l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, err))
+		return
+	}
+	if repo.GroupName != nil && repo.RepoName != nil {
+		l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, ErrGroupAndRepoDefined))
+		return
+	}
+	if repo.GroupName != nil {
+		if err := processGroupTokens(entryCtx, gitlabClient, &repo, index, yamlConfig); err != nil {
+			l.Error(err.Error())
+			return
+		}
+		if err := entryCtx.Err(); err != nil {
+			l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
+			return
+		}
+		if err := group.DeleteGroupTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
+			l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
+			return
+		}
+	}
+	if repo.RepoName != nil {
+		if err := processProjectTokens(entryCtx, gitlabClient, &repo, index, yamlConfig); err != nil {
+			l.Error(err.Error())
+			return
+		}
+		if err := entryCtx.Err(); err != nil {
+			l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
+			return
+		}
+		if err := project.DeleteProjectTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
+			l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
+			return
+		}
+	}
+}
+
 func main() {
 	l := logger.GetLogger()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	if err := checkEnvVars("GITLAB_TOKEN", "GITLAB_URL"); err != nil {
 		l.Fatal("the following error occurred:", zap.Error(err))
@@ -285,36 +338,18 @@ func main() {
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		for index, repo := range yamlConfig.Repos {
-			ctx := context.Background()
-			if err := repo.CheckKeyRotationAndTokenAge(); err != nil {
-				l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, err))
-				continue
-			}
-			if repo.GroupName != nil && repo.RepoName != nil {
-				l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, ErrGroupAndRepoDefined))
-				continue
-			}
-			if repo.GroupName != nil {
-				if err := processGroupTokens(ctx, gitlabClient, &repo, index, yamlConfig); err != nil {
-					l.Error(err.Error())
-					continue
+	for {
+		select {
+		case <-ctx.Done():
+			l.Info("Shutdown signal received, stopping token chaser")
+			return
+		case <-ticker.C:
+			for index, repo := range yamlConfig.Repos {
+				if err := ctx.Err(); err != nil {
+					l.Info("Shutdown signal received, stopping token chaser")
+					return
 				}
-				if err := group.DeleteGroupTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
-					l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
-					continue
-				}
-			}
-			if repo.RepoName != nil {
-				if err := processProjectTokens(ctx, gitlabClient, &repo, index, yamlConfig); err != nil {
-					l.Error(err.Error())
-					continue
-				}
-				if err := project.DeleteProjectTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
-					l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
-					continue
-				}
+				processRepository(ctx, gitlabClient, repo, index, yamlConfig)
 			}
 		}
 	}
