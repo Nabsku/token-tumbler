@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/nabsku/token-tumbler/internal/logger"
+	"github.com/nabsku/token-tumbler/internal/secrets"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,14 +158,14 @@ func inactiveProjectTokenNamed(name string) *gitlab.ProjectAccessToken {
 
 func TestSecretStoreForToken(t *testing.T) {
 	t.Run("allows explicit none", func(t *testing.T) {
-		secret, err := secretStoreForToken(&repository.Repository{SecretStore: "none"}, "token")
+		secret, err := secrets.ForRepository(&repository.Repository{SecretStore: "none"}, "token")
 
 		require.NoError(t, err)
 		assert.Nil(t, secret)
 	})
 
 	t.Run("rejects unsupported store", func(t *testing.T) {
-		secret, err := secretStoreForToken(&repository.Repository{SecretStore: "file"}, "token")
+		secret, err := secrets.ForRepository(&repository.Repository{SecretStore: "file"}, "token")
 
 		require.Error(t, err)
 		assert.Nil(t, secret)

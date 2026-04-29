@@ -96,25 +96,6 @@ func checkEnvVars(vars ...string) error {
 	return nil
 }
 
-func secretStoreForToken(entry *repository.Repository, token string) (secrets.SecretStore, error) {
-	switch strings.ToLower(strings.TrimSpace(entry.SecretStore)) {
-	case "none":
-		return nil, nil
-	case "vault":
-		if entry.VaultPath == nil || entry.VaultKey == nil || entry.Mount == nil {
-			return nil, fmt.Errorf("%w: vaultPath, vaultKey, and vaultMount are required", repository.ErrInvalidRepositoryConfig)
-		}
-		return &secrets.VaultSecret{
-			Path:      *entry.VaultPath,
-			Key:       *entry.VaultKey,
-			Value:     token,
-			MountPath: *entry.Mount,
-		}, nil
-	default:
-		return nil, fmt.Errorf("%w: unsupported secret store %q", repository.ErrInvalidRepositoryConfig, entry.SecretStore)
-	}
-}
-
 func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore) error {
 	if secret == nil {
 		return nil
@@ -220,7 +201,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		return nil
 	}
 
-	secret, err := secretStoreForToken(entry, groupToken.Token)
+	secret, err := secrets.ForRepository(entry, groupToken.Token)
 	if err != nil {
 		return err
 	}
@@ -281,7 +262,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		return nil
 	}
 
-	secret, err := secretStoreForToken(entry, projectToken.Token)
+	secret, err := secrets.ForRepository(entry, projectToken.Token)
 	if err != nil {
 		return err
 	}
