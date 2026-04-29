@@ -1,6 +1,6 @@
-# Token Chaser
+# Token Tumbler
 
-Token Chaser is a Go daemon for rotating GitLab project and group access tokens.
+Token Tumbler is a Go daemon for rotating GitLab project and group access tokens.
 
 ## Important Files
 

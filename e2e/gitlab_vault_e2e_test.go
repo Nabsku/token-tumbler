@@ -12,9 +12,9 @@ import (
 	"time"
 
 	vaultapi "github.com/hashicorp/vault/api"
-	"github.com/nabsku/token-chaser/internal/project"
-	"github.com/nabsku/token-chaser/internal/secrets"
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/project"
+	"github.com/nabsku/token-tumbler/internal/secrets"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -34,15 +34,15 @@ import (
 //
 // Optional environment variables:
 //
-//	TOKEN_CHASER_E2E_GITLAB_IMAGE  default: gitlab/gitlab-ce:17.11.0-ce.0
-//	TOKEN_CHASER_E2E_VAULT_IMAGE   default: hashicorp/vault:1.13.0
+//	TOKEN_TUMBLER_E2E_GITLAB_IMAGE  default: gitlab/gitlab-ce:17.11.0-ce.0
+//	TOKEN_TUMBLER_E2E_VAULT_IMAGE   default: hashicorp/vault:1.13.0
 func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Minute)
 	t.Cleanup(cancel)
 
-	runID := fmt.Sprintf("token-chaser-e2e-%d", time.Now().UnixNano())
+	runID := fmt.Sprintf("token-tumbler-e2e-%d", time.Now().UnixNano())
 	vaultMount := "kv"
-	vaultPath := "token-chaser/e2e/" + runID
+	vaultPath := "token-tumbler/e2e/" + runID
 	vaultKey := "gitlab_token"
 
 	vaultAddr, roleID, secretID := startVaultContainer(t, ctx, vaultMount)
@@ -62,7 +62,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	}
 
 	expectedFreshExpiry := time.Now().Add(freshEntry.Lifetime.ToDuration()).Format(time.DateOnly)
-	createdToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, freshEntry, "tc-e2e")
+	createdToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, freshEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, createdToken)
 	require.NotZero(t, createdToken.ID)
@@ -71,7 +71,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	require.NotNil(t, createdToken.ExpiresAt)
 	assert.Equal(t, expectedFreshExpiry, createdToken.ExpiresAt.String())
 
-	nameMatches, err := freshEntry.ParseTokenName("tc-e2e", createdToken.Name)
+	nameMatches, err := freshEntry.ParseTokenName("tt-e2e", createdToken.Name)
 	require.NoError(t, err)
 	assert.True(t, nameMatches)
 
@@ -85,7 +85,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 
 	projectTokens, err := project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
-	assert.Len(t, filterProjectTokensByEntry(t, projectTokens, freshEntry, "tc-e2e"), 1)
+	assert.Len(t, filterProjectTokensByEntry(t, projectTokens, freshEntry, "tt-e2e"), 1)
 
 	t.Cleanup(func() {
 		_, _ = gitlabClient.ProjectAccessTokens.RevokeProjectAccessToken(gitlabProjectID, createdToken.ID)
@@ -124,7 +124,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	}
 
 	expectedRotationExpiry := time.Now().Add(rotateEntry.Lifetime.ToDuration()).Format(time.DateOnly)
-	oldRotationToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, rotateEntry, "tc-e2e")
+	oldRotationToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, oldRotationToken)
 	require.NotZero(t, oldRotationToken.ID)
@@ -144,7 +144,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	assert.True(t, allNeedRenewal)
 
 	time.Sleep(2 * time.Second)
-	renewedRotationToken, err := project.RenewProjectAccessToken(gitlabClient, gitlabProjectID, rotateEntry, "tc-e2e")
+	renewedRotationToken, err := project.RenewProjectAccessToken(gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, renewedRotationToken)
 	require.NotZero(t, renewedRotationToken.ID)
@@ -156,14 +156,14 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 
 	projectTokens, err = project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
-	rotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tc-e2e")
+	rotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tt-e2e")
 	require.Len(t, rotationTokens, 2)
 
-	require.NoError(t, project.DeleteProjectTokens(gitlabClient, rotateEntry, "tc-e2e"))
+	require.NoError(t, project.DeleteProjectTokens(gitlabClient, rotateEntry, "tt-e2e"))
 
 	projectTokens, err = project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
-	remainingRotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tc-e2e")
+	remainingRotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tt-e2e")
 	activeRemainingRotationTokens := activeProjectTokens(remainingRotationTokens)
 	require.Len(t, activeRemainingRotationTokens, 1)
 	assert.Equal(t, renewedRotationToken.ID, activeRemainingRotationTokens[0].ID)
@@ -215,9 +215,9 @@ func assertProjectTokenRevoked(t *testing.T, tokens []*gitlab.ProjectAccessToken
 
 func startVaultContainer(t *testing.T, ctx context.Context, mount string) (addr string, roleID string, secretID string) {
 	t.Helper()
-	const rootToken = "token-chaser-root-token"
+	const rootToken = "token-tumbler-root-token"
 
-	vaultContainer, err := tcvault.Run(ctx, getenvDefault("TOKEN_CHASER_E2E_VAULT_IMAGE", "hashicorp/vault:1.13.0"), tcvault.WithToken(rootToken))
+	vaultContainer, err := tcvault.Run(ctx, getenvDefault("TOKEN_TUMBLER_E2E_VAULT_IMAGE", "hashicorp/vault:1.13.0"), tcvault.WithToken(rootToken))
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, testcontainers.TerminateContainer(vaultContainer)) })
 
@@ -236,24 +236,24 @@ func startVaultContainer(t *testing.T, ctx context.Context, mount string) (addr 
 
 	policy := fmt.Sprintf(`path %q { capabilities = ["create", "update", "read"] }
 path %q { capabilities = ["delete", "read"] }
-`, mount+"/data/token-chaser/e2e/*", mount+"/metadata/token-chaser/e2e/*")
-	require.NoError(t, client.Sys().PutPolicyWithContext(ctx, "token-chaser-e2e", policy))
+`, mount+"/data/token-tumbler/e2e/*", mount+"/metadata/token-tumbler/e2e/*")
+	require.NoError(t, client.Sys().PutPolicyWithContext(ctx, "token-tumbler-e2e", policy))
 
-	_, err = client.Logical().WriteWithContext(ctx, "auth/approle/role/token-chaser-e2e", map[string]interface{}{
-		"token_policies": "token-chaser-e2e",
+	_, err = client.Logical().WriteWithContext(ctx, "auth/approle/role/token-tumbler-e2e", map[string]interface{}{
+		"token_policies": "token-tumbler-e2e",
 		"token_ttl":      "1h",
 		"token_max_ttl":  "4h",
 	})
 	require.NoError(t, err)
 
-	roleSecret, err := client.Logical().ReadWithContext(ctx, "auth/approle/role/token-chaser-e2e/role-id")
+	roleSecret, err := client.Logical().ReadWithContext(ctx, "auth/approle/role/token-tumbler-e2e/role-id")
 	require.NoError(t, err)
 	require.NotNil(t, roleSecret)
 	roleID, ok := roleSecret.Data["role_id"].(string)
 	require.True(t, ok)
 	require.NotEmpty(t, roleID)
 
-	secret, err := client.Logical().WriteWithContext(ctx, "auth/approle/role/token-chaser-e2e/secret-id", nil)
+	secret, err := client.Logical().WriteWithContext(ctx, "auth/approle/role/token-tumbler-e2e/secret-id", nil)
 	require.NoError(t, err)
 	require.NotNil(t, secret)
 	secretID, ok = secret.Data["secret_id"].(string)
@@ -276,7 +276,7 @@ func startGitLabContainerAndCreateProject(t *testing.T, ctx context.Context, run
 	rootToken := "tokenchaserrootpat123456"
 	rootPassword := "Zx9$Qv2!Lm7#Rp4%Tn8@Ys6"
 
-	gitlabContainer, err := testcontainers.Run(ctx, getenvDefault("TOKEN_CHASER_E2E_GITLAB_IMAGE", "gitlab/gitlab-ce:17.11.0-ce.0"),
+	gitlabContainer, err := testcontainers.Run(ctx, getenvDefault("TOKEN_TUMBLER_E2E_GITLAB_IMAGE", "gitlab/gitlab-ce:17.11.0-ce.0"),
 		testcontainers.WithEnv(map[string]string{
 			"GITLAB_OMNIBUS_CONFIG": "external_url 'http://localhost'; gitlab_rails['initial_root_password'] = '" + rootPassword + "';",
 		}),
@@ -318,7 +318,7 @@ func startGitLabContainerAndCreateProject(t *testing.T, ctx context.Context, run
 
 func createRootPAT(t *testing.T, ctx context.Context, container testcontainers.Container, token string) {
 	t.Helper()
-	ruby := fmt.Sprintf(`user = User.find_by_username('root'); existing = user.personal_access_tokens.find_by(name: 'token-chaser-e2e-root'); existing&.destroy!; pat = user.personal_access_tokens.create!(name: 'token-chaser-e2e-root', scopes: ['api'], expires_at: 1.day.from_now); pat.set_token('%s'); pat.save!`, token)
+	ruby := fmt.Sprintf(`user = User.find_by_username('root'); existing = user.personal_access_tokens.find_by(name: 'token-tumbler-e2e-root'); existing&.destroy!; pat = user.personal_access_tokens.create!(name: 'token-tumbler-e2e-root', scopes: ['api'], expires_at: 1.day.from_now); pat.set_token('%s'); pat.save!`, token)
 	retryUntil(t, ctx, 5*time.Minute, 10*time.Second, func() error {
 		code, output, err := container.Exec(ctx, []string{"bash", "-lc", "gitlab-rails runner " + shellQuote(ruby)})
 		contents, _ := io.ReadAll(output)

@@ -46,7 +46,7 @@ sequenceDiagram
     participant S as Secret Store
 
     T->>C: Load and validate targets
-    loop Every TOKEN_CHASER_INTERVAL
+    loop Every TOKEN_TUMBLER_INTERVAL
         T->>G: Resolve project or group
         T->>G: List active matching tokens
         alt No matching token exists
@@ -121,7 +121,7 @@ export GITLAB_URL="https://gitlab.example.com"
 export GITLAB_TOKEN="glpat-..."
 
 # Optional; defaults to 5m. Uses Go duration syntax, for example 30s, 5m, 1h.
-export TOKEN_CHASER_INTERVAL="5m"
+export TOKEN_TUMBLER_INTERVAL="5m"
 
 # Only needed when at least one config entry uses secretStore: vault.
 export APPROLE_ID="..."
@@ -129,8 +129,6 @@ export APPROLE_SECRET="..."
 
 go run .
 ```
-
-> Note: the environment variable keeps the original `TOKEN_CHASER_INTERVAL` name until the binary and configuration surface are renamed.
 
 ## Configuration
 
@@ -198,7 +196,7 @@ Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
 | --- | --- | --- |
 | `GITLAB_URL` | Yes | Base URL for GitLab. |
 | `GITLAB_TOKEN` | Yes | Token with access-token management permissions. |
-| `TOKEN_CHASER_INTERVAL` | No | Poll interval. Defaults to `5m`. |
+| `TOKEN_TUMBLER_INTERVAL` | No | Poll interval. Defaults to `5m`. |
 | `APPROLE_ID` | When using Vault | Vault AppRole role id. |
 | `APPROLE_SECRET` | When using Vault | Vault AppRole secret id. |
 | `LOG_LEVEL` | No | Logger verbosity. |
@@ -257,8 +255,8 @@ go test -tags=e2e -v ./e2e -timeout 30m
 
 Optional E2E image overrides:
 
-- `TOKEN_CHASER_E2E_GITLAB_IMAGE`
-- `TOKEN_CHASER_E2E_VAULT_IMAGE`
+- `TOKEN_TUMBLER_E2E_GITLAB_IMAGE`
+- `TOKEN_TUMBLER_E2E_VAULT_IMAGE`
 
 ## Contributing
 

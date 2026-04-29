@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/api/client-go"
@@ -17,28 +17,28 @@ import (
 
 func TestCheckEnvVars(t *testing.T) {
 	t.Run("returns nil when all variables exist", func(t *testing.T) {
-		t.Setenv("TOKEN_CHASER_MAIN_TEST_A", "a")
-		t.Setenv("TOKEN_CHASER_MAIN_TEST_B", "b")
+		t.Setenv("TOKEN_TUMBLER_MAIN_TEST_A", "a")
+		t.Setenv("TOKEN_TUMBLER_MAIN_TEST_B", "b")
 
-		err := checkEnvVars("TOKEN_CHASER_MAIN_TEST_A", "TOKEN_CHASER_MAIN_TEST_B")
+		err := checkEnvVars("TOKEN_TUMBLER_MAIN_TEST_A", "TOKEN_TUMBLER_MAIN_TEST_B")
 
 		require.NoError(t, err)
 	})
 
 	t.Run("returns joined missing variables", func(t *testing.T) {
-		err := checkEnvVars("TOKEN_CHASER_MAIN_TEST_MISSING_A", "TOKEN_CHASER_MAIN_TEST_MISSING_B")
+		err := checkEnvVars("TOKEN_TUMBLER_MAIN_TEST_MISSING_A", "TOKEN_TUMBLER_MAIN_TEST_MISSING_B")
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "TOKEN_CHASER_MAIN_TEST_MISSING_A, TOKEN_CHASER_MAIN_TEST_MISSING_B")
+		assert.Contains(t, err.Error(), "TOKEN_TUMBLER_MAIN_TEST_MISSING_A, TOKEN_TUMBLER_MAIN_TEST_MISSING_B")
 	})
 
 	t.Run("treats empty variables as missing", func(t *testing.T) {
-		t.Setenv("TOKEN_CHASER_MAIN_TEST_EMPTY", "")
+		t.Setenv("TOKEN_TUMBLER_MAIN_TEST_EMPTY", "")
 
-		err := checkEnvVars("TOKEN_CHASER_MAIN_TEST_EMPTY")
+		err := checkEnvVars("TOKEN_TUMBLER_MAIN_TEST_EMPTY")
 
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "TOKEN_CHASER_MAIN_TEST_EMPTY")
+		assert.Contains(t, err.Error(), "TOKEN_TUMBLER_MAIN_TEST_EMPTY")
 	})
 }
 
@@ -92,7 +92,7 @@ func TestNewClient(t *testing.T) {
 
 func TestReadConfig(t *testing.T) {
 	t.Chdir(t.TempDir())
-	require.NoError(t, os.WriteFile("config.yaml", []byte(`prefix: tc
+	require.NoError(t, os.WriteFile("config.yaml", []byte(`prefix: tt
 repositories:
   - repoName: service
     name: token
@@ -123,15 +123,15 @@ func TestMatchingProjectTokens_ShouldSkipForeignTokens(t *testing.T) {
 	repo := &repository.Repository{RepoName: gitlab.Ptr("service"), Name: "service"}
 	tokens := []*gitlab.ProjectAccessToken{
 		projectTokenNamed("foreign-token"),
-		revokedProjectTokenNamed("tc-service-revoked"),
-		inactiveProjectTokenNamed("tc-service-inactive"),
-		projectTokenNamed("tc-service-2026-01-01T00:00:00Z"),
+		revokedProjectTokenNamed("tt-service-revoked"),
+		inactiveProjectTokenNamed("tt-service-inactive"),
+		projectTokenNamed("tt-service-2026-01-01T00:00:00Z"),
 	}
 
-	got := matchingProjectTokens(tokens, repo, "tc", 0)
+	got := matchingProjectTokens(tokens, repo, "tt", 0)
 
 	require.Len(t, got, 1)
-	assert.Equal(t, "tc-service-2026-01-01T00:00:00Z", got[0].Name)
+	assert.Equal(t, "tt-service-2026-01-01T00:00:00Z", got[0].Name)
 }
 
 func projectTokenNamed(name string) *gitlab.ProjectAccessToken {
@@ -197,7 +197,7 @@ func TestProcessRepository_ShouldNotDeleteOldProjectTokenWhenVaultWriteFails(t *
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(`[]`))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v4/projects/42/access_tokens":
-			_, _ = w.Write([]byte(`{"id":99,"name":"tc-service-new","token":"new-secret","active":true}`))
+			_, _ = w.Write([]byte(`{"id":99,"name":"tt-service-new","token":"new-secret","active":true}`))
 		case r.Method == http.MethodDelete:
 			deleteCalls = append(deleteCalls, r.URL.Path)
 			w.WriteHeader(http.StatusNoContent)
@@ -207,7 +207,7 @@ func TestProcessRepository_ShouldNotDeleteOldProjectTokenWhenVaultWriteFails(t *
 		}
 	})
 
-	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tc"})
+	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tt"})
 
 	assert.Empty(t, deleteCalls)
 }
@@ -230,8 +230,8 @@ func TestProcessRepository_ShouldAttemptProjectDeletionAndStopOnRevokeFailure(t 
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-old","active":true,"created_at":%q,"expires_at":%q},
-				{"id":2,"name":"tc-service-newest","active":true,"created_at":%q,"expires_at":%q}
+				{"id":1,"name":"tt-service-old","active":true,"created_at":%q,"expires_at":%q},
+				{"id":2,"name":"tt-service-newest","active":true,"created_at":%q,"expires_at":%q}
 			]`,
 				time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(48*time.Hour).Format(time.DateOnly),
 				time.Now().Add(-48*time.Hour).Format(time.RFC3339), time.Now().Add(48*time.Hour).Format(time.DateOnly),
@@ -245,7 +245,7 @@ func TestProcessRepository_ShouldAttemptProjectDeletionAndStopOnRevokeFailure(t 
 		}
 	})
 
-	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tc"})
+	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tt"})
 
 	require.NotEmpty(t, deleteCalls)
 	assert.ElementsMatch(t, []string{"/api/v4/projects/42/access_tokens/1"}, uniqueStrings(deleteCalls))
@@ -270,7 +270,7 @@ func TestProcessRepository_ShouldSkipWorkWhenContextIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	processRepository(ctx, client, repo, 0, &repository.Config{Prefix: "tc"})
+	processRepository(ctx, client, repo, 0, &repository.Config{Prefix: "tt"})
 
 	assert.Zero(t, requestCount)
 }

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/api/client-go"
@@ -57,7 +57,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v4/projects/42/access_tokens", r.URL.Path)
 			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
-			_, _ = w.Write([]byte(`[{"id":1,"name":"tc-service-old"},{"id":2,"name":"tc-service-new"}]`))
+			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-old"},{"id":2,"name":"tt-service-new"}]`))
 		})
 
 		got, err := GatherProjectTokenInfo(client, 42)
@@ -65,7 +65,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, got, 2)
 		assert.Equal(t, 1, got[0].ID)
-		assert.Equal(t, "tc-service-old", got[0].Name)
+		assert.Equal(t, "tt-service-old", got[0].Name)
 	})
 
 	t.Run("returns all paginated project access tokens", func(t *testing.T) {
@@ -77,9 +77,9 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			switch r.URL.Query().Get("page") {
 			case "", "1":
 				w.Header().Set("X-Next-Page", "2")
-				_, _ = w.Write([]byte(`[{"id":1,"name":"tc-service-old"}]`))
+				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-old"}]`))
 			case "2":
-				_, _ = w.Write([]byte(`[{"id":2,"name":"tc-service-new"}]`))
+				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-service-new"}]`))
 			default:
 				t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
 				http.Error(w, "unexpected page", http.StatusBadRequest)

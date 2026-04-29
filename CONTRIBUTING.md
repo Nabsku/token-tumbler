@@ -9,8 +9,8 @@
 ## Setup
 
 ```sh
-git clone https://github.com/nabsku/token-chaser.git
-cd token-chaser
+git clone https://github.com/nabsku/token-tumbler.git
+cd token-tumbler
 go mod download
 ```
 
