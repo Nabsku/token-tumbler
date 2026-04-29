@@ -17,6 +17,9 @@ Run locally:
 export GITLAB_URL="https://gitlab.example.com"
 export GITLAB_TOKEN="glpat-..."
 
+# Optional; defaults to 5m. Uses Go duration syntax, for example 30s, 5m, 1h.
+export TOKEN_CHASER_INTERVAL="5m"
+
 # Only needed when at least one config entry uses secretStore: vault.
 export APPROLE_ID="..."
 export APPROLE_SECRET="..."
@@ -24,7 +27,8 @@ export APPROLE_SECRET="..."
 go run .
 ```
 
-Token Chaser reads `config.yaml` from the current working directory.
+Token Chaser reads `config.yaml` from the current working directory and polls on
+`TOKEN_CHASER_INTERVAL` when set, defaulting to 5 minutes.
 
 ## Configuration
 

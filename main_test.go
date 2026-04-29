@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/nabsku/token-chaser/internal/types/repository"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,44 @@ func TestCheckEnvVars(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "TOKEN_CHASER_MAIN_TEST_EMPTY")
+	})
+}
+
+func TestPollIntervalFromEnv(t *testing.T) {
+	t.Run("defaults to production interval", func(t *testing.T) {
+		t.Setenv(pollIntervalEnvVar, "")
+
+		interval, err := pollIntervalFromEnv()
+
+		require.NoError(t, err)
+		assert.Equal(t, defaultPollInterval, interval)
+	})
+
+	t.Run("uses environment interval", func(t *testing.T) {
+		t.Setenv(pollIntervalEnvVar, "15m")
+
+		interval, err := pollIntervalFromEnv()
+
+		require.NoError(t, err)
+		assert.Equal(t, 15*time.Minute, interval)
+	})
+
+	t.Run("rejects invalid interval", func(t *testing.T) {
+		t.Setenv(pollIntervalEnvVar, "soon")
+
+		interval, err := pollIntervalFromEnv()
+
+		require.Error(t, err)
+		assert.Zero(t, interval)
+	})
+
+	t.Run("rejects non-positive interval", func(t *testing.T) {
+		t.Setenv(pollIntervalEnvVar, "0s")
+
+		interval, err := pollIntervalFromEnv()
+
+		require.Error(t, err)
+		assert.Zero(t, interval)
 	})
 }
 
