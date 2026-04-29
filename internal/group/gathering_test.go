@@ -56,6 +56,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 		client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
+			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
 			_, _ = w.Write([]byte(`[{"id":1,"name":"tc-platform-old"},{"id":2,"name":"tc-platform-new"}]`))
 		})
 
@@ -65,6 +66,31 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 		require.Len(t, got, 2)
 		assert.Equal(t, 1, got[0].ID)
 		assert.Equal(t, "tc-platform-old", got[0].Name)
+	})
+
+	t.Run("returns all paginated group access tokens", func(t *testing.T) {
+		client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, http.MethodGet, r.Method)
+			assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
+			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
+
+			switch r.URL.Query().Get("page") {
+			case "", "1":
+				w.Header().Set("X-Next-Page", "2")
+				_, _ = w.Write([]byte(`[{"id":1,"name":"tc-platform-old"}]`))
+			case "2":
+				_, _ = w.Write([]byte(`[{"id":2,"name":"tc-platform-new"}]`))
+			default:
+				t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
+				http.Error(w, "unexpected page", http.StatusBadRequest)
+			}
+		})
+
+		got, err := GatherGroupTokenInfo(client, 42)
+
+		require.NoError(t, err)
+		require.Len(t, got, 2)
+		assert.Equal(t, []int{1, 2}, []int{got[0].ID, got[1].ID})
 	})
 
 	t.Run("propagates api error", func(t *testing.T) {
