@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/nabsku/token-tumbler/internal/gitlabutil"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 
 	"gitlab.com/gitlab-org/api/client-go"
@@ -28,21 +29,14 @@ func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gi
 
 func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int) ([]*gitlab.GroupAccessToken, error) {
 	options := &gitlab.ListGroupAccessTokensOptions{PerPage: 100}
-	var groupTokens []*gitlab.GroupAccessToken
-
-	for {
-		pageTokens, response, err := gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options)
-		if err != nil {
-			return nil, err
-		}
-		groupTokens = append(groupTokens, pageTokens...)
-		if response == nil || response.NextPage == 0 {
-			break
-		}
-		options.Page = response.NextPage
-	}
-
-	return groupTokens, nil
+	return gitlabutil.CollectPages(
+		func() ([]*gitlab.GroupAccessToken, *gitlab.Response, error) {
+			return gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options)
+		},
+		func(page int) {
+			options.Page = page
+		},
+	)
 }
 
 func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
