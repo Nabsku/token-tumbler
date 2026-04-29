@@ -313,7 +313,11 @@ func startGitLabContainerAndCreateProject(t *testing.T, ctx context.Context, run
 	require.NotNil(t, createdProject)
 	t.Cleanup(func() { _, _ = gitlabClient.Projects.DeleteProject(createdProject.ID, nil) })
 
-	return gitlabClient, createdProject.ID, path
+	projectPath := createdProject.PathWithNamespace
+	if strings.TrimSpace(projectPath) == "" {
+		projectPath = path
+	}
+	return gitlabClient, createdProject.ID, projectPath
 }
 
 func createRootPAT(t *testing.T, ctx context.Context, container testcontainers.Container, token string) {
