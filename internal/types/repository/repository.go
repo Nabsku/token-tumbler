@@ -260,27 +260,11 @@ func (r *Repository) ShouldBeRenewed(token any) (bool, error) {
 	switch t := token.(type) {
 	case *gitlab.ProjectAccessToken:
 		l.Info("Checking project access token")
-		threshold, err := thresholdExceeded(r, t.ExpiresAt)
-		if err != nil {
-			return false, err
-		}
-
-		if threshold {
-			return true, nil
-		}
-		return false, nil
+		return thresholdExceeded(r, t.ExpiresAt)
 
 	case *gitlab.GroupAccessToken:
 		l.Info("Checking group access token")
-		threshold, err := thresholdExceeded(r, t.ExpiresAt)
-		if err != nil {
-			return false, err
-		}
-
-		if threshold {
-			return true, nil
-		}
-		return false, nil
+		return thresholdExceeded(r, t.ExpiresAt)
 	case *gitlab.PersonalAccessToken:
 		l.Warn("Personal access token is not supported yet")
 		return false, fmt.Errorf("personal access token is not supported yet, %w", ErrInvalidTokenType)
