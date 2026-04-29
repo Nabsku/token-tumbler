@@ -57,9 +57,8 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testing.
 	deleteCalls := make([]string, 0)
 	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
-			assert.Equal(t, groupName, r.URL.Query().Get("search"))
-			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-platform-only","active":true,"created_at":%q},
@@ -86,8 +85,8 @@ func TestDeleteGroupTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod(t
 	deleteCalls := make([]string, 0)
 	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-platform-oldest","active":true,"created_at":%q},
@@ -123,8 +122,8 @@ func TestDeleteGroupTokens_ShouldReturnRevokeErrors(t *testing.T) {
 	repo := &repository.Repository{Name: "platform", GroupName: &groupName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
 	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-platform-old","active":true,"created_at":%q},
@@ -150,8 +149,8 @@ func TestDeleteGroupTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) {
 	deleteCalls := make([]string, 0)
 	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-platform-revoked","active":false,"revoked":true,"created_at":%q},
@@ -183,8 +182,8 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing
 	deleteCalls := make([]string, 0)
 	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
-			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
 				{"id":1,"name":"tc-platform-old","active":true,"created_at":%q},

@@ -2,6 +2,8 @@ package group
 
 import (
 	"errors"
+	"net/http"
+
 	"github.com/nabsku/token-chaser/internal/types/repository"
 
 	"gitlab.com/gitlab-org/api/client-go"
@@ -11,22 +13,18 @@ var ErrTooManyGroupsInSearch = errors.New("there are too many groups in your que
 var ErrNoGroupsInSearch = errors.New("no groups found in your query")
 
 func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Group, error) {
-	opts := &gitlab.ListGroupsOptions{
-		Search: gitlab.Ptr(*entry.GroupName),
-	}
-	groups, _, err := gitlabClient.Groups.ListGroups(opts)
+	group, response, err := gitlabClient.Groups.GetGroup(*entry.GroupName, nil)
 	if err != nil {
+		if response != nil && response.StatusCode == http.StatusNotFound {
+			return nil, ErrNoGroupsInSearch
+		}
 		return nil, err
 	}
-
-	if len(groups) > 1 {
-		return nil, ErrTooManyGroupsInSearch
-	}
-	if len(groups) == 0 {
+	if group == nil {
 		return nil, ErrNoGroupsInSearch
 	}
 
-	return groups[0], nil
+	return group, nil
 }
 
 func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int) ([]*gitlab.GroupAccessToken, error) {

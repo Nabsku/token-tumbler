@@ -20,9 +20,8 @@ func TestGatherGroup(t *testing.T) {
 		wantID    int
 		wantError error
 	}{
-		{name: "single group", status: http.StatusOK, response: `[{"id":42,"name":"platform","full_path":"org/platform"}]`, wantID: 42},
-		{name: "too many groups", status: http.StatusOK, response: `[{"id":1},{"id":2}]`, wantError: ErrTooManyGroupsInSearch},
-		{name: "no groups", status: http.StatusOK, response: `[]`, wantError: ErrNoGroupsInSearch},
+		{name: "single group", status: http.StatusOK, response: `{"id":42,"name":"platform","full_path":"org/platform"}`, wantID: 42},
+		{name: "no group", status: http.StatusNotFound, response: `{"message":"404 Group Not Found"}`, wantError: ErrNoGroupsInSearch},
 		{name: "api error", status: http.StatusInternalServerError, response: `{"message":"boom"}`, wantError: assert.AnError},
 	}
 
@@ -30,8 +29,7 @@ func TestGatherGroup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodGet, r.Method)
-				assert.Equal(t, "/api/v4/groups", r.URL.Path)
-				assert.Equal(t, "platform", r.URL.Query().Get("search"))
+				assert.Equal(t, "/api/v4/groups/platform", r.URL.Path)
 				w.WriteHeader(tt.status)
 				_, _ = w.Write([]byte(tt.response))
 			})
