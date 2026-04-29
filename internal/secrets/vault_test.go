@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	vault "github.com/hashicorp/vault/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,4 +22,27 @@ func TestVaultSecret_InitClient_ShouldReturnErrorForInvalidAppRoleConfig(t *test
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to initialize AppRole auth method")
 	assert.Nil(t, secret.Client)
+}
+
+func TestMergeSecretData_ShouldPreserveUnrelatedKeys(t *testing.T) {
+	existing := &vault.KVSecret{Data: map[string]interface{}{
+		"gitlab_token": "old-token",
+		"username":     "deploy-bot",
+		"retries":      float64(3),
+	}}
+
+	got := mergeSecretData(existing, "gitlab_token", "new-token")
+
+	assert.Equal(t, map[string]interface{}{
+		"gitlab_token": "new-token",
+		"username":     "deploy-bot",
+		"retries":      float64(3),
+	}, got)
+	assert.Equal(t, "old-token", existing.Data["gitlab_token"])
+}
+
+func TestMergeSecretData_ShouldCreateSecretDataWhenNoExistingSecret(t *testing.T) {
+	got := mergeSecretData(nil, "gitlab_token", "new-token")
+
+	assert.Equal(t, map[string]interface{}{"gitlab_token": "new-token"}, got)
 }
