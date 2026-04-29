@@ -121,6 +121,13 @@ repositories:
 	}
 }
 
+func TestCheckedInConfig_ShouldValidate(t *testing.T) {
+	config, err := readConfig()
+
+	require.NoError(t, err)
+	require.NotNil(t, config)
+}
+
 func TestMatchingProjectTokens_ShouldSkipForeignTokens(t *testing.T) {
 	repo := &repository.Repository{RepoName: gitlab.Ptr("service"), Name: "service"}
 	tokens := []*gitlab.ProjectAccessToken{
