@@ -47,6 +47,9 @@ func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int, pref
 	var prefixedTokens []*gitlab.GroupAccessToken
 
 	for _, token := range groupTokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		if ok, _ := entry.ParseTokenName(prefix, token.Name); ok {
 			prefixedTokens = append(prefixedTokens, token)
 		}

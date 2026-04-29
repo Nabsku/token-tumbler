@@ -108,6 +108,9 @@ func matchingGroupTokens(tokens []*gitlab.GroupAccessToken, entry *repository.Re
 	l := logger.GetLogger()
 	var matches []*gitlab.GroupAccessToken
 	for _, token := range tokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
 			matches = append(matches, token)
 		} else if err != nil {
@@ -122,6 +125,9 @@ func matchingProjectTokens(tokens []*gitlab.ProjectAccessToken, entry *repositor
 	l := logger.GetLogger()
 	var matches []*gitlab.ProjectAccessToken
 	for _, token := range tokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
 			l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", token.Name))
 			matches = append(matches, token)

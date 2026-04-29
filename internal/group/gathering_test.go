@@ -87,9 +87,11 @@ func TestGatherGroupTokenInfoByPrefix(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
 		_, _ = w.Write([]byte(`[
-			{"id":1,"name":"tc-platform-old"},
-			{"id":2,"name":"foreign-token"},
-			{"id":3,"name":"tc-platform-new"}
+			{"id":1,"name":"tc-platform-old","active":true},
+			{"id":2,"name":"foreign-token","active":true},
+			{"id":3,"name":"tc-platform-new","active":true},
+			{"id":4,"name":"tc-platform-revoked","active":false,"revoked":true},
+			{"id":5,"name":"tc-platform-inactive","active":false}
 		]`))
 	})
 

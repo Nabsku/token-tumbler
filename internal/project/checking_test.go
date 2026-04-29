@@ -31,6 +31,15 @@ func TestCheckProjectTokensForRenewal(t *testing.T) {
 			projectTokenWithExpiry(t, time.Now().Add(10*24*time.Hour)),
 			projectTokenWithExpiry(t, time.Now().Add(11*24*time.Hour)),
 		}, want: false},
+		{name: "ignores revoked and inactive tokens", tokens: []*gitlab.ProjectAccessToken{
+			projectTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			revokedProjectTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			inactiveProjectTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+		}, want: true},
+		{name: "only revoked or inactive tokens do not trigger renewal", tokens: []*gitlab.ProjectAccessToken{
+			revokedProjectTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			inactiveProjectTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+		}, want: false},
 	}
 
 	for _, tt := range tests {
@@ -49,5 +58,21 @@ func projectTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.ProjectAcces
 	require.NoError(t, err)
 	token := &gitlab.ProjectAccessToken{}
 	token.ExpiresAt = &iso
+	token.Active = true
+	return token
+}
+
+func revokedProjectTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.ProjectAccessToken {
+	t.Helper()
+	token := projectTokenWithExpiry(t, expiry)
+	token.Revoked = true
+	token.Active = false
+	return token
+}
+
+func inactiveProjectTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.ProjectAccessToken {
+	t.Helper()
+	token := projectTokenWithExpiry(t, expiry)
+	token.Active = false
 	return token
 }
