@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/api/client-go"
@@ -61,7 +61,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testing.
 			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-platform-only","active":true,"created_at":%q},
+				{"id":1,"name":"tt-platform-only","active":true,"created_at":%q},
 				{"id":2,"name":"foreign-token","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-72*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
@@ -73,7 +73,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testing.
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tc")
+	err := DeleteGroupTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -89,9 +89,9 @@ func TestDeleteGroupTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod(t
 			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-platform-oldest","active":true,"created_at":%q},
-				{"id":2,"name":"tc-platform-old","active":true,"created_at":%q},
-				{"id":3,"name":"tc-platform-newest","active":true,"created_at":%q},
+				{"id":1,"name":"tt-platform-oldest","active":true,"created_at":%q},
+				{"id":2,"name":"tt-platform-old","active":true,"created_at":%q},
+				{"id":3,"name":"tt-platform-newest","active":true,"created_at":%q},
 				{"id":4,"name":"foreign-token","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-72*time.Hour).Format(time.RFC3339),
@@ -108,7 +108,7 @@ func TestDeleteGroupTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod(t
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tc")
+	err := DeleteGroupTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
@@ -126,8 +126,8 @@ func TestDeleteGroupTokens_ShouldReturnRevokeErrors(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-platform-old","active":true,"created_at":%q},
-				{"id":2,"name":"tc-platform-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-platform-old","active":true,"created_at":%q},
+				{"id":2,"name":"tt-platform-newest","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-48*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			http.Error(w, "revoke failed", http.StatusInternalServerError)
@@ -137,7 +137,7 @@ func TestDeleteGroupTokens_ShouldReturnRevokeErrors(t *testing.T) {
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tc")
+	err := DeleteGroupTokens(client, repo, "tt")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "deleting token")
@@ -153,9 +153,9 @@ func TestDeleteGroupTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-platform-revoked","active":false,"revoked":true,"created_at":%q},
-				{"id":2,"name":"tc-platform-inactive","active":false,"created_at":%q},
-				{"id":3,"name":"tc-platform-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-platform-revoked","active":false,"revoked":true,"created_at":%q},
+				{"id":2,"name":"tt-platform-inactive","active":false,"created_at":%q},
+				{"id":3,"name":"tt-platform-newest","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-96*time.Hour).Format(time.RFC3339),
 				time.Now().Add(-84*time.Hour).Format(time.RFC3339),
@@ -170,7 +170,7 @@ func TestDeleteGroupTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) {
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tc")
+	err := DeleteGroupTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -186,8 +186,8 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing
 			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-platform-old","active":true,"created_at":%q},
-				{"id":2,"name":"tc-platform-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-platform-old","active":true,"created_at":%q},
+				{"id":2,"name":"tt-platform-newest","active":true,"created_at":%q}
 			]`, time.Now().Add(-20*time.Hour).Format(time.RFC3339), time.Now().Add(-10*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			deleteCalls = append(deleteCalls, r.URL.Path)
@@ -198,7 +198,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tc")
+	err := DeleteGroupTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)

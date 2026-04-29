@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 
 	"gitlab.com/gitlab-org/api/client-go"
 )

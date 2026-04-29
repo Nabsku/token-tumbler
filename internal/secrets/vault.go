@@ -108,6 +108,9 @@ func (vs *VaultSecret) mergedSecretData(ctx context.Context) (map[string]interfa
 }
 
 func isVaultNotFound(err error) bool {
+	if errors.Is(err, vault.ErrSecretNotFound) {
+		return true
+	}
 	var responseError *vault.ResponseError
 	return errors.As(err, &responseError) && responseError.StatusCode == http.StatusNotFound
 }

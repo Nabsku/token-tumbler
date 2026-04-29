@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/api/client-go"
@@ -57,7 +57,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
 			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
-			_, _ = w.Write([]byte(`[{"id":1,"name":"tc-platform-old"},{"id":2,"name":"tc-platform-new"}]`))
+			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-old"},{"id":2,"name":"tt-platform-new"}]`))
 		})
 
 		got, err := GatherGroupTokenInfo(client, 42)
@@ -65,7 +65,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, got, 2)
 		assert.Equal(t, 1, got[0].ID)
-		assert.Equal(t, "tc-platform-old", got[0].Name)
+		assert.Equal(t, "tt-platform-old", got[0].Name)
 	})
 
 	t.Run("returns all paginated group access tokens", func(t *testing.T) {
@@ -77,9 +77,9 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			switch r.URL.Query().Get("page") {
 			case "", "1":
 				w.Header().Set("X-Next-Page", "2")
-				_, _ = w.Write([]byte(`[{"id":1,"name":"tc-platform-old"}]`))
+				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-old"}]`))
 			case "2":
-				_, _ = w.Write([]byte(`[{"id":2,"name":"tc-platform-new"}]`))
+				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-platform-new"}]`))
 			default:
 				t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
 				http.Error(w, "unexpected page", http.StatusBadRequest)
@@ -111,15 +111,15 @@ func TestGatherGroupTokenInfoByPrefix(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
 		_, _ = w.Write([]byte(`[
-			{"id":1,"name":"tc-platform-old","active":true},
+			{"id":1,"name":"tt-platform-old","active":true},
 			{"id":2,"name":"foreign-token","active":true},
-			{"id":3,"name":"tc-platform-new","active":true},
-			{"id":4,"name":"tc-platform-revoked","active":false,"revoked":true},
-			{"id":5,"name":"tc-platform-inactive","active":false}
+			{"id":3,"name":"tt-platform-new","active":true},
+			{"id":4,"name":"tt-platform-revoked","active":false,"revoked":true},
+			{"id":5,"name":"tt-platform-inactive","active":false}
 		]`))
 	})
 
-	got, err := GatherGroupTokenInfoByPrefix(client, 42, "tc", repository.Repository{Name: "platform"})
+	got, err := GatherGroupTokenInfoByPrefix(client, 42, "tt", repository.Repository{Name: "platform"})
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)

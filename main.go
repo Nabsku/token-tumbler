@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/nabsku/token-chaser/internal/config"
-	"github.com/nabsku/token-chaser/internal/group"
-	"github.com/nabsku/token-chaser/internal/helper"
-	"github.com/nabsku/token-chaser/internal/logger"
-	"github.com/nabsku/token-chaser/internal/project"
-	"github.com/nabsku/token-chaser/internal/secrets"
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/config"
+	"github.com/nabsku/token-tumbler/internal/group"
+	"github.com/nabsku/token-tumbler/internal/helper"
+	"github.com/nabsku/token-tumbler/internal/logger"
+	"github.com/nabsku/token-tumbler/internal/project"
+	"github.com/nabsku/token-tumbler/internal/secrets"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"net/http"
 
 	"os"
@@ -33,7 +33,7 @@ const (
 	defaultPollInterval        = 5 * time.Minute
 	operationTimeout           = 30 * time.Second
 	errorString         string = "while processing %v at index %v, the following error occurred: %w"
-	pollIntervalEnvVar         = "TOKEN_CHASER_INTERVAL"
+	pollIntervalEnvVar         = "TOKEN_TUMBLER_INTERVAL"
 )
 
 func pollIntervalFromEnv() (time.Duration, error) {

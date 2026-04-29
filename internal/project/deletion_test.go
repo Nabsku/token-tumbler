@@ -2,7 +2,7 @@ package project
 
 import (
 	"fmt"
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"gitlab.com/gitlab-org/api/client-go"
 	"net/http"
 	"strings"
@@ -73,7 +73,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testin
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-only","active":true,"created_at":%q},
+				{"id":1,"name":"tt-service-only","active":true,"created_at":%q},
 				{"id":2,"name":"foreign-token","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-72*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
@@ -85,7 +85,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testin
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -101,9 +101,9 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-oldest","active":true,"created_at":%q},
-				{"id":2,"name":"tc-service-old","active":true,"created_at":%q},
-				{"id":3,"name":"tc-service-newest","active":true,"created_at":%q},
+				{"id":1,"name":"tt-service-oldest","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-old","active":true,"created_at":%q},
+				{"id":3,"name":"tt-service-newest","active":true,"created_at":%q},
 				{"id":4,"name":"foreign-token","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-72*time.Hour).Format(time.RFC3339),
@@ -120,7 +120,7 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
@@ -138,8 +138,8 @@ func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-old","active":true,"created_at":%q},
-				{"id":2,"name":"tc-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-old","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-newest","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-48*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			http.Error(w, "revoke failed", http.StatusInternalServerError)
@@ -149,7 +149,7 @@ func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "deleting token")
@@ -165,9 +165,9 @@ func TestDeleteProjectTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) 
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-revoked","active":false,"revoked":true,"created_at":%q},
-				{"id":2,"name":"tc-service-inactive","active":false,"created_at":%q},
-				{"id":3,"name":"tc-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-revoked","active":false,"revoked":true,"created_at":%q},
+				{"id":2,"name":"tt-service-inactive","active":false,"created_at":%q},
+				{"id":3,"name":"tt-service-newest","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-96*time.Hour).Format(time.RFC3339),
 				time.Now().Add(-84*time.Hour).Format(time.RFC3339),
@@ -182,7 +182,7 @@ func TestDeleteProjectTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) 
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -198,8 +198,8 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testi
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tc-service-old","active":true,"created_at":%q},
-				{"id":2,"name":"tc-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-old","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-newest","active":true,"created_at":%q}
 			]`, time.Now().Add(-20*time.Hour).Format(time.RFC3339), time.Now().Add(-10*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			deleteCalls = append(deleteCalls, r.URL.Path)
@@ -210,7 +210,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testi
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -224,7 +224,7 @@ func TestDeleteProjectTokens_ShouldReturnErrorWhenProjectIsMissing(t *testing.T)
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	err := DeleteProjectTokens(client, repo, "tc")
+	err := DeleteProjectTokens(client, repo, "tt")
 
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no projects found"))

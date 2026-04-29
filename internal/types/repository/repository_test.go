@@ -96,7 +96,7 @@ func TestConfig_ValidatePrefix(t *testing.T) {
 
 func TestConfig_Validate(t *testing.T) {
 	t.Run("accepts valid project config with vault", func(t *testing.T) {
-		cfg := &Config{Prefix: "tc", Repos: []Repository{validRepositoryConfig()}}
+		cfg := &Config{Prefix: "tt", Repos: []Repository{validRepositoryConfig()}}
 
 		err := cfg.Validate()
 
@@ -104,7 +104,7 @@ func TestConfig_Validate(t *testing.T) {
 	})
 
 	t.Run("rejects empty repositories", func(t *testing.T) {
-		err := (&Config{Prefix: "tc"}).Validate()
+		err := (&Config{Prefix: "tt"}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "repositories cannot be empty")
@@ -114,7 +114,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.RepoName = nil
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "repoName or groupName is required")
@@ -124,7 +124,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.GroupName = gitlab.Ptr("group")
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "define either repoName or groupName")
@@ -134,7 +134,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.VaultKey = nil
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "vaultKey is required")
@@ -144,7 +144,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.SecretStore = ""
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "secretStore is required")
@@ -157,7 +157,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo.VaultKey = nil
 		repo.Mount = nil
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.NoError(t, err)
 	})
@@ -166,7 +166,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.Lifetime = Duration{Duration: -1 * time.Hour}
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "lifetime must be greater than zero")
@@ -176,7 +176,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.RotationThreshold = &Duration{Duration: 0}
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "rotationThreshold must be greater than zero")
@@ -186,7 +186,7 @@ func TestConfig_Validate(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.GracePeriod = &Duration{Duration: -1 * time.Hour}
 
-		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "gracePeriod cannot be negative")
@@ -206,12 +206,12 @@ func TestRepository_ParseTokenName(t *testing.T) {
 		tokenName string
 		wantOK    bool
 	}{
-		{name: "matches expected prefix repo format", repoName: "service", prefix: "tc", tokenName: "tc-service-2026-01-01T00:00:00Z", wantOK: true},
-		{name: "rejects expected format as substring", repoName: "service", prefix: "tc", tokenName: "old-tc-service-2026", wantOK: false},
-		{name: "rejects missing dash after prefix", repoName: "service", prefix: "tc", tokenName: "tcservice-2026", wantOK: false},
-		{name: "rejects different repository name", repoName: "service", prefix: "tc", tokenName: "tc-other-2026", wantOK: false},
-		{name: "trailing dash prefix still matches single dash format", repoName: "service", prefix: "tc-", tokenName: "tc-service-2026", wantOK: true},
-		{name: "trailing dash prefix rejects double dash format", repoName: "service", prefix: "tc-", tokenName: "tc--service-2026", wantOK: false},
+		{name: "matches expected prefix repo format", repoName: "service", prefix: "tt", tokenName: "tt-service-2026-01-01T00:00:00Z", wantOK: true},
+		{name: "rejects expected format as substring", repoName: "service", prefix: "tt", tokenName: "old-tt-service-2026", wantOK: false},
+		{name: "rejects missing dash after prefix", repoName: "service", prefix: "tt", tokenName: "ttservice-2026", wantOK: false},
+		{name: "rejects different repository name", repoName: "service", prefix: "tt", tokenName: "tt-other-2026", wantOK: false},
+		{name: "trailing dash prefix still matches single dash format", repoName: "service", prefix: "tt-", tokenName: "tt-service-2026", wantOK: true},
+		{name: "trailing dash prefix rejects double dash format", repoName: "service", prefix: "tt-", tokenName: "tt--service-2026", wantOK: false},
 	}
 
 	for _, tt := range tests {
@@ -235,8 +235,8 @@ func TestRepository_ParseTokenName_ShouldRecognizeGeneratedTokenNames(t *testing
 		name   string
 		prefix string
 	}{
-		{name: "prefix without trailing dash", prefix: "tc"},
-		{name: "prefix with trailing dash", prefix: "tc-"},
+		{name: "prefix without trailing dash", prefix: "tt"},
+		{name: "prefix with trailing dash", prefix: "tt-"},
 	}
 
 	for _, tt := range tests {
@@ -280,21 +280,21 @@ func TestRepository_NewTokenName(t *testing.T) {
 	t.Run("builds name with RFC3339 timestamp", func(t *testing.T) {
 		repo := &Repository{Name: "service"}
 
-		name, err := repo.NewTokenName("tc-")
+		name, err := repo.NewTokenName("tt-")
 
 		require.NoError(t, err)
-		require.True(t, strings.HasPrefix(name, "tc-service-"))
-		_, err = time.Parse(time.RFC3339, strings.TrimPrefix(name, "tc-service-"))
+		require.True(t, strings.HasPrefix(name, "tt-service-"))
+		_, err = time.Parse(time.RFC3339, strings.TrimPrefix(name, "tt-service-"))
 		require.NoError(t, err)
 	})
 
 	t.Run("normalizes prefix without trailing dash", func(t *testing.T) {
 		repo := &Repository{Name: "service"}
 
-		name, err := repo.NewTokenName("tc")
+		name, err := repo.NewTokenName("tt")
 
 		require.NoError(t, err)
-		assert.True(t, strings.HasPrefix(name, "tc-service-"))
+		assert.True(t, strings.HasPrefix(name, "tt-service-"))
 	})
 
 	t.Run("rejects empty prefix", func(t *testing.T) {
@@ -305,7 +305,7 @@ func TestRepository_NewTokenName(t *testing.T) {
 	})
 
 	t.Run("rejects empty token name", func(t *testing.T) {
-		name, err := (&Repository{}).NewTokenName("tc-")
+		name, err := (&Repository{}).NewTokenName("tt-")
 
 		assert.Empty(t, name)
 		require.Error(t, err)

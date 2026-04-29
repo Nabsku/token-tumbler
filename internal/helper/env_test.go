@@ -7,23 +7,23 @@ import (
 )
 
 func TestCheckAndGetEnvVar_ShouldReturnTrue(t *testing.T) {
-	t.Setenv("TOKEN_CHASER_TEST_ENV", "present")
+	t.Setenv("TOKEN_TUMBLER_TEST_ENV", "present")
 
-	test := CheckAndGetEnvVar("TOKEN_CHASER_TEST_ENV")
+	test := CheckAndGetEnvVar("TOKEN_TUMBLER_TEST_ENV")
 
 	assert.True(t, test)
 }
 
 func TestCheckAndGetEnvVar_ShouldReturnFalseForEmptyEnvValue(t *testing.T) {
-	t.Setenv("TOKEN_CHASER_TEST_EMPTY_ENV", "")
+	t.Setenv("TOKEN_TUMBLER_TEST_EMPTY_ENV", "")
 
-	test := CheckAndGetEnvVar("TOKEN_CHASER_TEST_EMPTY_ENV")
+	test := CheckAndGetEnvVar("TOKEN_TUMBLER_TEST_EMPTY_ENV")
 
 	assert.False(t, test)
 }
 
 func TestCheckAndGetEnvVar_ShouldReturnFalse(t *testing.T) {
-	test := CheckAndGetEnvVar("TOKEN_CHASER_TEST_ENV_THAT_SHOULD_NOT_EXIST")
+	test := CheckAndGetEnvVar("TOKEN_TUMBLER_TEST_ENV_THAT_SHOULD_NOT_EXIST")
 
 	assert.False(t, test)
 }

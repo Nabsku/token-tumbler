@@ -1,4 +1,4 @@
-module github.com/nabsku/token-chaser
+module github.com/nabsku/token-tumbler
 
 go 1.25.0
 

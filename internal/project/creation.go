@@ -3,8 +3,8 @@ package project
 import (
 	"errors"
 	"fmt"
-	"github.com/nabsku/token-chaser/internal/logger"
-	"github.com/nabsku/token-chaser/internal/types/repository"
+	"github.com/nabsku/token-tumbler/internal/logger"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"strings"
 	"time"
 

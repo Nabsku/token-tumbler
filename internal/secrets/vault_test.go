@@ -46,3 +46,7 @@ func TestMergeSecretData_ShouldCreateSecretDataWhenNoExistingSecret(t *testing.T
 
 	assert.Equal(t, map[string]interface{}{"gitlab_token": "new-token"}, got)
 }
+
+func TestIsVaultNotFound_ShouldRecognizeKVSecretNotFound(t *testing.T) {
+	assert.True(t, isVaultNotFound(vault.ErrSecretNotFound))
+}
