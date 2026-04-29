@@ -163,10 +163,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	}
 
 	tokenInfo, err := group.GatherGroupTokenInfo(gitlabClient, info.ID)
-
-	if errors.Is(err, group.ErrTooManyGroupsInSearch) {
-		return fmt.Errorf(errorString, *entry.GroupName, index, group.ErrTooManyGroupsInSearch)
-	} else if err != nil {
+	if err != nil {
 		return fmt.Errorf(errorString, *entry.GroupName, index, err)
 	}
 
@@ -223,10 +220,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	}
 
 	tokenInfo, err := project.GatherProjectTokenInfo(gitlabClient, info.ID)
-
-	if errors.Is(err, project.ErrTooManyProjectsInSearch) {
-		return fmt.Errorf(errorString, *entry.RepoName, index, project.ErrTooManyProjectsInSearch)
-	} else if err != nil {
+	if err != nil {
 		return fmt.Errorf(errorString, *entry.RepoName, index, err)
 	}
 

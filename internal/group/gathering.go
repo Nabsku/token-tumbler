@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
-var ErrTooManyGroupsInSearch = errors.New("there are too many groups in your query. please narrow the group down by including the full path")
 var ErrNoGroupsInSearch = errors.New("no groups found in your query")
 
 func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Group, error) {

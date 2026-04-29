@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
-var ErrTooManyProjectsInSearch = errors.New("there are too many projects found in your query. please narrow the search by including the full path")
 var ErrNoProjectsInSearch = errors.New("no projects found in your query")
 
 func GatherProject(gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Project, error) {
