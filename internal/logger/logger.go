@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -9,8 +8,6 @@ import (
 	"os"
 	"sync"
 )
-
-type ctxKey struct{}
 
 var once sync.Once
 
@@ -39,24 +36,4 @@ func GetLogger() *zap.Logger {
 		logger = zap.New(core)
 	})
 	return logger
-}
-
-//goland:noinspection GoUnusedExportedFunction,GoUnusedExportedFunction
-func FromContext(ctx context.Context) *zap.Logger {
-	if zapLogger, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
-		return zapLogger
-	} else if zapLogger := logger; zapLogger != nil {
-		return zapLogger
-	}
-	return zap.NewNop()
-}
-
-//goland:noinspection GoUnusedExportedFunction
-func WithContext(ctx context.Context, l *zap.Logger) context.Context {
-	if contextKey, ok := ctx.Value(ctxKey{}).(*zap.Logger); ok {
-		if contextKey == l {
-			return ctx
-		}
-	}
-	return context.WithValue(ctx, ctxKey{}, l)
 }

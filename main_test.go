@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nabsku/token-tumbler/internal/logger"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -207,7 +208,7 @@ func TestProcessRepository_ShouldNotDeleteOldProjectTokenWhenVaultWriteFails(t *
 		}
 	})
 
-	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tt"})
+	NewRunner(client, &repository.Config{Prefix: "tt"}, logger.GetLogger()).ProcessRepository(context.Background(), repo, 0)
 
 	assert.Empty(t, deleteCalls)
 }
@@ -245,7 +246,7 @@ func TestProcessRepository_ShouldAttemptProjectDeletionAndStopOnRevokeFailure(t 
 		}
 	})
 
-	processRepository(context.Background(), client, repo, 0, &repository.Config{Prefix: "tt"})
+	NewRunner(client, &repository.Config{Prefix: "tt"}, logger.GetLogger()).ProcessRepository(context.Background(), repo, 0)
 
 	require.NotEmpty(t, deleteCalls)
 	assert.ElementsMatch(t, []string{"/api/v4/projects/42/access_tokens/1"}, uniqueStrings(deleteCalls))
@@ -270,7 +271,7 @@ func TestProcessRepository_ShouldSkipWorkWhenContextIsCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	processRepository(ctx, client, repo, 0, &repository.Config{Prefix: "tt"})
+	NewRunner(client, &repository.Config{Prefix: "tt"}, logger.GetLogger()).ProcessRepository(ctx, repo, 0)
 
 	assert.Zero(t, requestCount)
 }

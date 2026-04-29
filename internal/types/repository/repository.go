@@ -207,25 +207,6 @@ func (r *Repository) validateSecretStore() error {
 	}
 }
 
-func (r *Repository) GetRenewalDate(expiryDate *gitlab.ISOTime) (*gitlab.ISOTime, error) {
-	if expiryDate == nil {
-		return nil, ErrMissingTokenExpiry
-	}
-	if r.RotationThreshold == nil {
-		return nil, fmt.Errorf("%w: rotationThreshold is required", ErrInvalidRepositoryConfig)
-	}
-	parsedTime, err := parseISOTime(expiryDate.String())
-	if err != nil {
-		return nil, err
-	}
-
-	date, err := gitlab.ParseISOTime(parsedTime.Add(-r.RotationThreshold.ToDuration()).Format(time.DateOnly))
-	if err != nil {
-		return nil, err
-	}
-	return &date, nil
-}
-
 func (r *Repository) ParseTokenName(prefix string, token string) (bool, error) {
 	format := tokenNamePrefix(prefix, r.Name)
 	if !strings.HasPrefix(token, format) {

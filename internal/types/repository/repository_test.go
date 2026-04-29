@@ -253,16 +253,6 @@ func TestRepository_ParseTokenName_ShouldRecognizeGeneratedTokenNames(t *testing
 	}
 }
 
-func TestRepository_GetRenewalDate(t *testing.T) {
-	expiry := mustISODate(t, time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC))
-	repo := &Repository{RotationThreshold: &Duration{Duration: 48 * time.Hour}}
-
-	renewalDate, err := repo.GetRenewalDate(expiry)
-
-	require.NoError(t, err)
-	assert.Equal(t, "2026-01-13", renewalDate.String())
-}
-
 func TestRepository_GetExpiryDate(t *testing.T) {
 	repo := &Repository{Lifetime: Duration{Duration: 72 * time.Hour}}
 	before := time.Now().Add(72 * time.Hour)
