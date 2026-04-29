@@ -21,10 +21,10 @@ func DeleteGroupTokens(gitlabClient *gitlab.Client, repo *repository.Repository,
 	}
 
 	tokens, err := GatherGroupTokenInfoByPrefix(gitlabClient, group.ID, prefix, *repo)
-	l.Debug(fmt.Sprintf("Found %v for %s", tokens, *repo.GroupName))
 	if err != nil {
 		return err
 	}
+	l.Debug(fmt.Sprintf("Found %d matching active tokens for %s", len(tokens), *repo.GroupName))
 
 	if len(tokens) <= 1 {
 		l.Debug(fmt.Sprintf("Only found 1 token for %s, not revoking", *repo.GroupName))
@@ -54,9 +54,8 @@ func DeleteGroupTokens(gitlabClient *gitlab.Client, repo *repository.Repository,
 		if token.Revoked || !token.Active {
 			continue
 		}
-		l.Debug(fmt.Sprintf("Parsing token %s before deletion", token.Name))
 		if parseOk, errTokenParse := repo.ParseTokenName(prefix, token.Name); parseOk {
-			l.Debug(fmt.Sprintf("Checking token %s for deletion", token.Name))
+			l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
 			shouldDelete := checkGroupTokenDeletion(repo, token, newestToken)
 
 			if shouldDelete {
@@ -79,8 +78,8 @@ func DeleteGroupTokens(gitlabClient *gitlab.Client, repo *repository.Repository,
 func checkGroupTokenDeletion(entry *repository.Repository, token *gitlab.GroupAccessToken, newestToken *gitlab.GroupAccessToken) bool {
 	l := logger.GetLogger()
 
-	l.Debug(fmt.Sprintf("Checking token for deletion: %s", token.Token))
-	l.Debug(fmt.Sprintf("Token created at: %s", token.CreatedAt))
+	l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
+	l.Debug(fmt.Sprintf("Token %s (id %d) created at: %s", token.Name, token.ID, token.CreatedAt))
 	if token.CreatedAt == nil || newestToken == nil || newestToken.CreatedAt == nil || entry.GracePeriod == nil {
 		l.Debug("Missing token creation date or grace period, not deleting")
 		return false
@@ -92,7 +91,7 @@ func checkGroupTokenDeletion(entry *repository.Repository, token *gitlab.GroupAc
 		return false
 	}
 
-	l.Debug(fmt.Sprintf("Checking if token %s is older than grace period", token.Token))
+	l.Debug(fmt.Sprintf("Checking if token %s (id %d) is older than grace period", token.Name, token.ID))
 
 	if time.Now().After(newestToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
 		return true

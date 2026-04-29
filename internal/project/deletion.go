@@ -64,8 +64,7 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 
 	var revokeErr error
 	for _, token := range prefixedTokens {
-		l.Debug(fmt.Sprintf("Parsing token %s before deletion", token.Name))
-		l.Debug(fmt.Sprintf("Checking token %s for deletion", token.Name))
+		l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
 		shouldDelete := checkProjectTokenDeletion(repo, token, newestToken)
 
 		if shouldDelete {
@@ -85,8 +84,8 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 func checkProjectTokenDeletion(entry *repository.Repository, token *gitlab.ProjectAccessToken, newestToken *gitlab.ProjectAccessToken) bool {
 	l := logger.GetLogger()
 
-	l.Debug(fmt.Sprintf("Checking token for deletion: %s", token.Token))
-	l.Debug(fmt.Sprintf("Token created at: %s", token.CreatedAt))
+	l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
+	l.Debug(fmt.Sprintf("Token %s (id %d) created at: %s", token.Name, token.ID, token.CreatedAt))
 	if token.CreatedAt == nil || newestToken == nil || newestToken.CreatedAt == nil || entry.GracePeriod == nil {
 		l.Debug("Missing token creation date or grace period, not deleting")
 		return false
@@ -98,7 +97,7 @@ func checkProjectTokenDeletion(entry *repository.Repository, token *gitlab.Proje
 		return false
 	}
 
-	l.Debug(fmt.Sprintf("Checking if token %s is older than grace period", token.Token))
+	l.Debug(fmt.Sprintf("Checking if token %s (id %d) is older than grace period", token.Name, token.ID))
 
 	if time.Now().After(newestToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
 		return true
