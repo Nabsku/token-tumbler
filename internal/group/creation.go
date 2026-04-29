@@ -1,13 +1,17 @@
 package group
 
 import (
+	"errors"
 	"fmt"
 	"github.com/nabsku/token-chaser/internal/logger"
 	"github.com/nabsku/token-chaser/internal/types/repository"
+	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/api/client-go"
 )
+
+var ErrInvalidGroupTokenResponse = errors.New("invalid group access token response")
 
 func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
 	l := logger.GetLogger()
@@ -22,7 +26,14 @@ func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int, entry *reposi
 	if err != nil {
 		return nil, err
 	}
-	return createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
+	token, err := createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateGroupAccessTokenResponse(token); err != nil {
+		return nil, err
+	}
+	return token, nil
 }
 
 func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
@@ -38,7 +49,23 @@ func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int, entry *repo
 	if err != nil {
 		return nil, err
 	}
+	if err := validateGroupAccessTokenResponse(token); err != nil {
+		return nil, err
+	}
 	return token, nil
+}
+
+func validateGroupAccessTokenResponse(token *gitlab.GroupAccessToken) error {
+	if token == nil {
+		return fmt.Errorf("%w: token is nil", ErrInvalidGroupTokenResponse)
+	}
+	if token.ID == 0 {
+		return fmt.Errorf("%w: token ID is empty", ErrInvalidGroupTokenResponse)
+	}
+	if strings.TrimSpace(token.Token) == "" {
+		return fmt.Errorf("%w: token value is empty", ErrInvalidGroupTokenResponse)
+	}
+	return nil
 }
 
 func createGroupAccessToken(gitlabClient *gitlab.Client, groupID int, tokenName string, scopes []string, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
