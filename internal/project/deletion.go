@@ -35,6 +35,9 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 
 	var prefixedTokens []*gitlab.ProjectAccessToken
 	for _, token := range tokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		if parseOk, errTokenParse := repo.ParseTokenName(prefix, token.Name); parseOk {
 			prefixedTokens = append(prefixedTokens, token)
 		} else if errTokenParse != nil {

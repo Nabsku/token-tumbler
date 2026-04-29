@@ -31,6 +31,15 @@ func TestCheckGroupTokensForRenewal(t *testing.T) {
 			groupTokenWithExpiry(t, time.Now().Add(10*24*time.Hour)),
 			groupTokenWithExpiry(t, time.Now().Add(11*24*time.Hour)),
 		}, want: false},
+		{name: "ignores revoked and inactive tokens", tokens: []*gitlab.GroupAccessToken{
+			groupTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			revokedGroupTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			inactiveGroupTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+		}, want: true},
+		{name: "only revoked or inactive tokens do not trigger renewal", tokens: []*gitlab.GroupAccessToken{
+			revokedGroupTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+			inactiveGroupTokenWithExpiry(t, time.Now().Add(24*time.Hour)),
+		}, want: false},
 	}
 
 	for _, tt := range tests {
@@ -49,5 +58,21 @@ func groupTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.GroupAccessTok
 	require.NoError(t, err)
 	token := &gitlab.GroupAccessToken{}
 	token.ExpiresAt = &iso
+	token.Active = true
+	return token
+}
+
+func revokedGroupTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.GroupAccessToken {
+	t.Helper()
+	token := groupTokenWithExpiry(t, expiry)
+	token.Revoked = true
+	token.Active = false
+	return token
+}
+
+func inactiveGroupTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.GroupAccessToken {
+	t.Helper()
+	token := groupTokenWithExpiry(t, expiry)
+	token.Active = false
 	return token
 }

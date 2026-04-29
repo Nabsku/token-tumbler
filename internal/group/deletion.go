@@ -34,6 +34,9 @@ func DeleteGroupTokens(gitlabClient *gitlab.Client, repo *repository.Repository,
 	var newestToken *gitlab.GroupAccessToken
 	var revokeErr error
 	for _, token := range tokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		if token.CreatedAt == nil {
 			l.Debug(fmt.Sprintf("Token %s has no creation date, skipping as newest candidate", token.Name))
 			continue
@@ -48,6 +51,9 @@ func DeleteGroupTokens(gitlabClient *gitlab.Client, repo *repository.Repository,
 	}
 
 	for _, token := range tokens {
+		if token.Revoked || !token.Active {
+			continue
+		}
 		l.Debug(fmt.Sprintf("Parsing token %s before deletion", token.Name))
 		if parseOk, errTokenParse := repo.ParseTokenName(prefix, token.Name); parseOk {
 			l.Debug(fmt.Sprintf("Checking token %s for deletion", token.Name))

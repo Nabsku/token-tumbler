@@ -80,6 +80,8 @@ func TestMatchingProjectTokens_ShouldSkipForeignTokens(t *testing.T) {
 	repo := &repository.Repository{RepoName: gitlab.Ptr("service"), Name: "service"}
 	tokens := []*gitlab.ProjectAccessToken{
 		projectTokenNamed("foreign-token"),
+		revokedProjectTokenNamed("tc-service-revoked"),
+		inactiveProjectTokenNamed("tc-service-inactive"),
 		projectTokenNamed("tc-service-2026-01-01T00:00:00Z"),
 	}
 
@@ -92,6 +94,20 @@ func TestMatchingProjectTokens_ShouldSkipForeignTokens(t *testing.T) {
 func projectTokenNamed(name string) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.Name = name
+	token.Active = true
+	return token
+}
+
+func revokedProjectTokenNamed(name string) *gitlab.ProjectAccessToken {
+	token := projectTokenNamed(name)
+	token.Revoked = true
+	token.Active = false
+	return token
+}
+
+func inactiveProjectTokenNamed(name string) *gitlab.ProjectAccessToken {
+	token := projectTokenNamed(name)
+	token.Active = false
 	return token
 }
 
