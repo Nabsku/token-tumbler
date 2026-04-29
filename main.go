@@ -70,6 +70,61 @@ func checkEnvVars(vars ...string) error {
 	return nil
 }
 
+func secretStoreForToken(entry *repository.Repository, token string) secrets.SecretStore {
+	switch strings.ToLower(entry.SecretStore) {
+	case "vault":
+		return &secrets.VaultSecret{
+			Path:      *entry.VaultPath,
+			Key:       *entry.VaultKey,
+			Value:     token,
+			MountPath: *entry.Mount,
+		}
+	default:
+		return nil
+	}
+}
+
+func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore) {
+	if secret == nil {
+		return
+	}
+
+	l := logger.GetLogger()
+	l.Info(fmt.Sprintf("Writing Secret to selected secret store (%v).", entry.SecretStore))
+	if err := secret.Write(ctx); err != nil {
+		panic(err)
+	}
+}
+
+func matchingGroupTokens(tokens []*gitlab.GroupAccessToken, entry *repository.Repository, prefix string, index int) []*gitlab.GroupAccessToken {
+	l := logger.GetLogger()
+	var matches []*gitlab.GroupAccessToken
+	for _, token := range tokens {
+		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
+			matches = append(matches, token)
+		} else if err != nil {
+			l.Debug(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
+			break
+		}
+	}
+	return matches
+}
+
+func matchingProjectTokens(tokens []*gitlab.ProjectAccessToken, entry *repository.Repository, prefix string, index int) []*gitlab.ProjectAccessToken {
+	l := logger.GetLogger()
+	var matches []*gitlab.ProjectAccessToken
+	for _, token := range tokens {
+		if ok, err := entry.ParseTokenName(prefix, token.Name); ok {
+			l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", token.Name))
+			matches = append(matches, token)
+		} else if err != nil {
+			l.Debug(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
+			break
+		}
+	}
+	return matches
+}
+
 func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -79,7 +134,6 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 
 	l := logger.GetLogger()
 
-	var secret secrets.SecretStore
 	var groupToken *gitlab.GroupAccessToken
 
 	info, err := group.GatherGroup(gitlabClient, entry)
@@ -103,15 +157,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		return
 	}
 
-	var tokenQueue []*gitlab.GroupAccessToken
-	for _, token := range tokenInfo {
-		if parseOk, errTokenParse := entry.ParseTokenName(yamlConfig.Prefix, token.Name); parseOk {
-			tokenQueue = append(tokenQueue, token)
-		} else if errTokenParse != nil {
-			l.Debug(fmt.Errorf(errorString, *entry.GroupName, index, errTokenParse).Error())
-			break
-		}
-	}
+	tokenQueue := matchingGroupTokens(tokenInfo, entry, yamlConfig.Prefix, index)
 
 	if len(tokenQueue) < 1 {
 		l.Info(fmt.Sprintf("No token in group %v yet, we're free to create one as we please.", *entry.GroupName))
@@ -143,23 +189,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		return
 	}
 
-	switch strings.ToLower(entry.SecretStore) {
-	case "vault":
-		secret = &secrets.VaultSecret{
-			Path:      *entry.VaultPath,
-			Key:       *entry.VaultKey,
-			Value:     groupToken.Token,
-			MountPath: *entry.Mount,
-		}
-	}
-	if secret == nil {
-		return
-	}
-	l.Info(fmt.Sprintf("Writing Secret %v to selected secret store (%v).", secret, entry.SecretStore))
-	errSecretWrite := secret.Write(ctx)
-	if errSecretWrite != nil {
-		panic(errSecretWrite)
-	}
+	writeSecret(ctx, entry, secretStoreForToken(entry, groupToken.Token))
 }
 
 func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) {
@@ -169,7 +199,6 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		}
 	}()
 
-	var secret secrets.SecretStore
 	var projectToken *gitlab.ProjectAccessToken
 
 	l := logger.GetLogger()
@@ -195,16 +224,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		return
 	}
 
-	var tokenQueue []*gitlab.ProjectAccessToken
-	for _, token := range tokenInfo {
-		if parseOk, errTokenParse := entry.ParseTokenName(yamlConfig.Prefix, token.Name); parseOk {
-			l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", token.Name))
-			tokenQueue = append(tokenQueue, token)
-		} else if errTokenParse != nil {
-			l.Debug(fmt.Errorf(errorString, *entry.RepoName, index, errTokenParse).Error())
-			break
-		}
-	}
+	tokenQueue := matchingProjectTokens(tokenInfo, entry, yamlConfig.Prefix, index)
 
 	if len(tokenQueue) < 1 {
 		l.Info(fmt.Sprintf("No token yet for repo %v, we're free to create one as we please.", *entry.RepoName))
@@ -238,23 +258,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		return
 	}
 
-	switch strings.ToLower(entry.SecretStore) {
-	case "vault":
-		secret = &secrets.VaultSecret{
-			Path:      *entry.VaultPath,
-			Key:       *entry.VaultKey,
-			Value:     projectToken.Token,
-			MountPath: *entry.Mount,
-		}
-	}
-	if secret == nil {
-		return
-	}
-	l.Info(fmt.Sprintf("Writing Secret to selected secret store (%v).", entry.SecretStore))
-	errSecretWrite := secret.Write(ctx)
-	if errSecretWrite != nil {
-		panic(errSecretWrite)
-	}
+	writeSecret(ctx, entry, secretStoreForToken(entry, projectToken.Token))
 }
 
 func main() {

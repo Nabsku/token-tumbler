@@ -13,18 +13,17 @@ func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int, entry *re
 	l := logger.GetLogger()
 
 	l.Debug(fmt.Sprintf("Creating new project token for %s", *entry.RepoName))
-	expireAtInDaysCheck, err := entry.GetExpiryDate()
+	expiryDate, err := entry.GetExpiryDate()
 	if err != nil {
 		return nil, err
 	}
-	expireAtInDays := expireAtInDaysCheck
 
 	tokenName, err := entry.NewTokenName(prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expireAtInDays)
+	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
 
 	if err != nil {
 		return nil, err

@@ -6,8 +6,7 @@ import (
 )
 
 func CheckGroupTokensForRenewal(tokens []*gitlab.GroupAccessToken, entry *repository.Repository) (bool, error) {
-	var tokensToRenew []*gitlab.GroupAccessToken
-
+	needsRenewalCount := 0
 	for _, token := range tokens {
 		needsRenewal, err := entry.ShouldBeRenewed(token)
 		if err != nil {
@@ -15,9 +14,9 @@ func CheckGroupTokensForRenewal(tokens []*gitlab.GroupAccessToken, entry *reposi
 		}
 
 		if needsRenewal {
-			tokensToRenew = append(tokensToRenew, token)
+			needsRenewalCount++
 		}
 	}
 
-	return len(tokens) > 0 && len(tokensToRenew) == len(tokens), nil
+	return len(tokens) > 0 && needsRenewalCount == len(tokens), nil
 }

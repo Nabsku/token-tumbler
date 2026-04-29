@@ -12,39 +12,35 @@ import (
 func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
 	l := logger.GetLogger()
 
-	expireAtInDaysCheck, err := entry.GetExpiryDate()
-	l.Debug(fmt.Sprintf("ExpireAtInDaysCheck: %v", expireAtInDaysCheck))
-
+	expiryDate, err := entry.GetExpiryDate()
 	if err != nil {
 		return nil, err
 	}
-	expireAtInDays := expireAtInDaysCheck
+	l.Debug(fmt.Sprintf("ExpiryDate: %v", expiryDate))
 
 	tokenName, err := entry.NewTokenName(prefix)
 	if err != nil {
 		return nil, err
 	}
-
-	opts := createGroupAccessTokenOptions(tokenName, entry.Permissions, expireAtInDays)
-
-	token, _, err := gitlabClient.GroupAccessTokens.CreateGroupAccessToken(groupID, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	return token, nil
+	return createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
 }
 
 func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
 	tokenName, _ := entry.NewTokenName(prefix)
 	expiryDate, _ := entry.GetExpiryDate()
-	opts := createGroupAccessTokenOptions(tokenName, entry.Permissions, expiryDate)
-
-	token, _, err := gitlabClient.GroupAccessTokens.CreateGroupAccessToken(groupID, opts)
+	token, err := createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
 	if err != nil {
 		return &gitlab.GroupAccessToken{}, err
 	}
+	return token, nil
+}
 
+func createGroupAccessToken(gitlabClient *gitlab.Client, groupID int, tokenName string, scopes []string, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
+	opts := createGroupAccessTokenOptions(tokenName, scopes, expiry)
+	token, _, err := gitlabClient.GroupAccessTokens.CreateGroupAccessToken(groupID, opts)
+	if err != nil {
+		return nil, err
+	}
 	return token, nil
 }
 
