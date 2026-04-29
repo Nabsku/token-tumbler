@@ -293,6 +293,14 @@ func processRepository(ctx context.Context, gitlabClient *gitlab.Client, repo re
 	l := logger.GetLogger().With(repositoryLogFields(repo, index)...)
 	entryCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
+	if err := entryCtx.Err(); err != nil {
+		l.Info("Skipping repository processing because context is done",
+			zap.String("operation", "repository_process"),
+			zap.String("outcome", "canceled"),
+			zap.Error(err),
+		)
+		return
+	}
 	l.Info("Started repository processing",
 		zap.String("operation", "repository_process"),
 		zap.String("outcome", "started"),
