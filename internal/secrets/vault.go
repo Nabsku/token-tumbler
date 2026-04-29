@@ -6,6 +6,7 @@ import (
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/approle"
 	"os"
+	"strings"
 )
 
 type VaultSecret struct {
@@ -24,7 +25,13 @@ func (vs *VaultSecret) InitClient(ctx context.Context) error {
 		return fmt.Errorf("unable to initialize a new vault client: %w", err)
 	}
 
-	appRoleID := os.Getenv("APPROLE_ID")
+	appRoleID := strings.TrimSpace(os.Getenv("APPROLE_ID"))
+	if appRoleID == "" {
+		return fmt.Errorf("unable to initialize AppRole auth method: APPROLE_ID is required")
+	}
+	if strings.TrimSpace(os.Getenv("APPROLE_SECRET")) == "" {
+		return fmt.Errorf("unable to initialize AppRole auth method: APPROLE_SECRET is required")
+	}
 	appRoleSecret := &auth.SecretID{
 		FromEnv: "APPROLE_SECRET",
 	}
@@ -38,7 +45,7 @@ func (vs *VaultSecret) InitClient(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("unable to login to AppRole auth method: %w", err)
 	}
-	if authInfo == nil {
+	if authInfo == nil || authInfo.Auth == nil || authInfo.Auth.ClientToken == "" {
 		return fmt.Errorf("no auth info was returned after login")
 	}
 
@@ -58,17 +65,19 @@ func (vs *VaultSecret) Read(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if secret == nil || secret.Data == nil {
+		return "", fmt.Errorf("secret %s does not exist", vs.Path)
+	}
 
-	s, ok := secret.Data[vs.Key]
+	secretValue, ok := secret.Data[vs.Key]
 	if !ok {
 		return "", fmt.Errorf("secret does not contain key %s", vs.Key)
 	}
-
-	if _, ok := s.(string); !ok {
+	value, ok := secretValue.(string)
+	if !ok {
 		return "", fmt.Errorf("secret %s is not a string, not overwriting", vs.Key)
 	}
-
-	return s.(string), nil
+	return value, nil
 }
 
 func (vs *VaultSecret) Write(ctx context.Context) error {

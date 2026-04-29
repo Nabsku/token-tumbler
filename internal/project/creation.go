@@ -44,8 +44,14 @@ func createPATokenWithTokenOptions(gitlabClient *gitlab.Client, projectID int, n
 }
 
 func RenewProjectAccessToken(gitlabClient *gitlab.Client, projectID int, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
-	tokenName, _ := entry.NewTokenName(prefix)
-	expiryDate, _ := entry.GetExpiryDate()
+	tokenName, err := entry.NewTokenName(prefix)
+	if err != nil {
+		return nil, err
+	}
+	expiryDate, err := entry.GetExpiryDate()
+	if err != nil {
+		return nil, err
+	}
 
 	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
 

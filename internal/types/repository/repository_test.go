@@ -48,6 +48,7 @@ func TestDuration_UnmarshalYAML_ShouldRejectInvalidDurations(t *testing.T) {
 		wantErr string
 	}{
 		{name: "non numeric value", input: "soon", wantErr: ErrMissingDuration.Error()},
+		{name: "empty value", input: "", wantErr: ErrMissingDuration.Error()},
 		{name: "invalid unit", input: "10x", wantErr: "invalid duration unit"},
 	}
 
@@ -91,6 +92,80 @@ func TestConfig_ValidatePrefix(t *testing.T) {
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestConfig_Validate(t *testing.T) {
+	t.Run("accepts valid project config with vault", func(t *testing.T) {
+		cfg := &Config{Prefix: "tc", Repos: []Repository{validRepositoryConfig()}}
+
+		err := cfg.Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects empty repositories", func(t *testing.T) {
+		err := (&Config{Prefix: "tc"}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "repositories cannot be empty")
+	})
+
+	t.Run("rejects missing target", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.RepoName = nil
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "repoName or groupName is required")
+	})
+
+	t.Run("rejects both project and group target", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.GroupName = gitlab.Ptr("group")
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "define either repoName or groupName")
+	})
+
+	t.Run("rejects incomplete vault config", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultKey = nil
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "vaultKey is required")
+	})
+
+	t.Run("requires explicit secret store", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = ""
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "secretStore is required")
+	})
+
+	t.Run("allows explicit no persistence mode", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "none"
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+}
+
+func TestConfig_UsesVault(t *testing.T) {
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "none"}}}).UsesVault())
+	assert.True(t, (&Config{Repos: []Repository{{SecretStore: " VaUlT "}}}).UsesVault())
 }
 
 func TestRepository_ParseTokenName(t *testing.T) {
@@ -306,4 +381,19 @@ func groupTokenExpiring(t *testing.T, value time.Time) *gitlab.GroupAccessToken 
 	token := &gitlab.GroupAccessToken{}
 	token.ExpiresAt = mustISODate(t, value)
 	return token
+}
+
+func validRepositoryConfig() Repository {
+	return Repository{
+		RepoName:          gitlab.Ptr("service"),
+		Name:              "token",
+		Permissions:       []string{"api"},
+		RotationThreshold: &Duration{Duration: 24 * time.Hour},
+		GracePeriod:       &Duration{Duration: 24 * time.Hour},
+		Lifetime:          Duration{Duration: 48 * time.Hour},
+		SecretStore:       "vault",
+		VaultPath:         gitlab.Ptr("path"),
+		VaultKey:          gitlab.Ptr("key"),
+		Mount:             gitlab.Ptr("kv"),
+	}
 }

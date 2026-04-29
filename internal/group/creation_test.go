@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nabsku/token-chaser/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,4 +22,12 @@ func TestCreateGroupAccessTokenOptions(t *testing.T) {
 	assert.Equal(t, "tc-group-2026", *opts.Name)
 	assert.Equal(t, scopes, *opts.Scopes)
 	assert.True(t, time.Time(*opts.ExpiresAt).Equal(expiry))
+}
+
+func TestRenewGroupAccessToken_ShouldValidateTokenNameBeforeGitLabCall(t *testing.T) {
+	token, err := RenewGroupAccessToken(nil, 1, &repository.Repository{}, "tc")
+
+	require.Error(t, err)
+	assert.Nil(t, token)
+	assert.Contains(t, err.Error(), "cannot be empty")
 }

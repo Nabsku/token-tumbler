@@ -26,11 +26,17 @@ func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int, entry *reposi
 }
 
 func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
-	tokenName, _ := entry.NewTokenName(prefix)
-	expiryDate, _ := entry.GetExpiryDate()
+	tokenName, err := entry.NewTokenName(prefix)
+	if err != nil {
+		return nil, err
+	}
+	expiryDate, err := entry.GetExpiryDate()
+	if err != nil {
+		return nil, err
+	}
 	token, err := createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
 	if err != nil {
-		return &gitlab.GroupAccessToken{}, err
+		return nil, err
 	}
 	return token, nil
 }

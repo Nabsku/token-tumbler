@@ -18,6 +18,8 @@ var (
 	ErrInvalidPrefix                = errors.New("invalid prefix. only use alphanumeric characters, hyphens, or underscores")
 	ErrInvalidTokenType             = errors.New("invalid token type")
 	ErrMissingDuration              = errors.New("missing duration suffix, please use s, m, h, d, w or M")
+	ErrMissingTokenExpiry           = errors.New("missing token expiry date")
+	ErrInvalidRepositoryConfig      = errors.New("invalid repository configuration")
 )
 
 type Duration struct {
@@ -29,6 +31,9 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var str string
 	if err := unmarshal(&str); err != nil {
 		return err
+	}
+	if str == "" {
+		return ErrMissingDuration
 	}
 
 	unit := str[len(str)-1]
@@ -93,13 +98,106 @@ func (c *Config) ValidatePrefix() error {
 	if helper.IsLetter(c.Prefix) {
 		l.Info("Validating repository prefix detected")
 		return nil
-	} else {
-		l.Error("Invalid repository prefix detected")
-		return ErrInvalidPrefix
+	}
+
+	l.Error("Invalid repository prefix detected")
+	return ErrInvalidPrefix
+}
+
+func (c *Config) Validate() error {
+	if err := c.ValidatePrefix(); err != nil {
+		return err
+	}
+	if len(c.Repos) == 0 {
+		return fmt.Errorf("%w: repositories cannot be empty", ErrInvalidRepositoryConfig)
+	}
+
+	for index := range c.Repos {
+		if err := c.Repos[index].Validate(); err != nil {
+			return fmt.Errorf("repository at index %d: %w", index, err)
+		}
+	}
+	return nil
+}
+
+func (c *Config) UsesVault() bool {
+	for _, repo := range c.Repos {
+		if strings.EqualFold(strings.TrimSpace(repo.SecretStore), "vault") {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Repository) Validate() error {
+	if strings.TrimSpace(r.Name) == "" {
+		return fmt.Errorf("%w: name is required", ErrInvalidRepositoryConfig)
+	}
+	if len(r.Permissions) == 0 {
+		return fmt.Errorf("%w: permissions are required", ErrInvalidRepositoryConfig)
+	}
+	if r.RotationThreshold == nil {
+		return fmt.Errorf("%w: rotationThreshold is required", ErrInvalidRepositoryConfig)
+	}
+	if r.GracePeriod == nil {
+		return fmt.Errorf("%w: gracePeriod is required", ErrInvalidRepositoryConfig)
+	}
+	if r.Lifetime.ToDuration() == 0 {
+		return fmt.Errorf("%w: lifetime is required", ErrInvalidRepositoryConfig)
+	}
+	if strings.TrimSpace(r.SecretStore) == "" {
+		return fmt.Errorf("%w: secretStore is required; use \"none\" to disable persistence explicitly", ErrInvalidRepositoryConfig)
+	}
+	if err := r.validateTarget(); err != nil {
+		return err
+	}
+	if err := r.validateSecretStore(); err != nil {
+		return err
+	}
+	return r.CheckKeyRotationAndTokenAge()
+}
+
+func (r *Repository) validateTarget() error {
+	hasRepo := r.RepoName != nil && strings.TrimSpace(*r.RepoName) != ""
+	hasGroup := r.GroupName != nil && strings.TrimSpace(*r.GroupName) != ""
+
+	switch {
+	case hasRepo && hasGroup:
+		return fmt.Errorf("%w: define either repoName or groupName, not both", ErrInvalidRepositoryConfig)
+	case !hasRepo && !hasGroup:
+		return fmt.Errorf("%w: repoName or groupName is required", ErrInvalidRepositoryConfig)
+	default:
+		return nil
+	}
+}
+
+func (r *Repository) validateSecretStore() error {
+	switch strings.ToLower(strings.TrimSpace(r.SecretStore)) {
+	case "none":
+		return nil
+	case "vault":
+		if r.VaultPath == nil || strings.TrimSpace(*r.VaultPath) == "" {
+			return fmt.Errorf("%w: vaultPath is required for vault secret store", ErrInvalidRepositoryConfig)
+		}
+		if r.VaultKey == nil || strings.TrimSpace(*r.VaultKey) == "" {
+			return fmt.Errorf("%w: vaultKey is required for vault secret store", ErrInvalidRepositoryConfig)
+		}
+		if r.Mount == nil || strings.TrimSpace(*r.Mount) == "" {
+			return fmt.Errorf("%w: vaultMount is required for vault secret store", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	default:
+		return fmt.Errorf("%w: unsupported secret store %q", ErrInvalidRepositoryConfig, r.SecretStore)
 	}
 }
 
 func (r *Repository) GetRenewalDate(expiryDate *gitlab.ISOTime) (*gitlab.ISOTime, error) {
+	if expiryDate == nil {
+		return nil, ErrMissingTokenExpiry
+	}
+	if r.RotationThreshold == nil {
+		return nil, fmt.Errorf("%w: rotationThreshold is required", ErrInvalidRepositoryConfig)
+	}
 	parsedTime, err := parseISOTime(expiryDate.String())
 	if err != nil {
 		return nil, err
@@ -119,15 +217,6 @@ func (r *Repository) ParseTokenName(prefix string, token string) (bool, error) {
 	}
 	return true, nil
 }
-
-//func (r *Repository) GetDate(expiryDate *gitlab.ISOTime) (*gitlab.ISOTime, error) {
-//	parsedTime, err := time.Parse(time.RFC3339, expiryDate.String())
-//	if err != nil {
-//		return nil, err
-//	}
-//	date, err := gitlab.ParseISOTime(parsedTime.Format(time.RFC3339))
-//	return &date, err
-//}
 
 func (r *Repository) GetExpiryDate() (*time.Time, error) {
 	expiryDate := time.Now().Add(r.Lifetime.ToDuration())
@@ -181,9 +270,13 @@ func (r *Repository) NewTokenName(prefix string) (string, error) {
 }
 
 func (r *Repository) CheckKeyRotationAndTokenAge() error {
+	if r.RotationThreshold == nil {
+		return fmt.Errorf("%w: rotationThreshold is required", ErrInvalidRepositoryConfig)
+	}
 	if r.Lifetime.ToDuration() == r.RotationThreshold.ToDuration() {
 		return ErrKeyAgeRotationSame
-	} else if r.Lifetime.ToDuration() < r.RotationThreshold.ToDuration() {
+	}
+	if r.Lifetime.ToDuration() < r.RotationThreshold.ToDuration() {
 		return ErrTokenAgeLowerThanKeyRotation
 	}
 
@@ -191,6 +284,9 @@ func (r *Repository) CheckKeyRotationAndTokenAge() error {
 }
 
 func thresholdExceeded(r *Repository, expiresAt *gitlab.ISOTime) (bool, error) {
+	if expiresAt == nil {
+		return false, ErrMissingTokenExpiry
+	}
 	expiresAtTime, err := parseISOTime(expiresAt.String())
 	if err != nil {
 		return false, err
@@ -217,10 +313,3 @@ func parseISOTime(value string) (time.Time, error) {
 func tokenNamePrefix(prefix, name string) string {
 	return strings.TrimSuffix(prefix, "-") + "-" + name + "-"
 }
-
-//func (r *Repository) GetSecretStore() string {
-//	if r.SecretStore != "" {
-//		return r.SecretStore
-//	}
-//	return ""
-//}

@@ -40,6 +40,17 @@ func TestCheckGroupTokenDeletion_ShouldNotDelete(t *testing.T) {
 	assert.False(t, shouldNotDeleteNewestToken)
 }
 
+func TestCheckGroupTokenDeletion_ShouldNotDeleteTokenWithUnknownCreationDate(t *testing.T) {
+	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: time.Hour}}
+	token := &gitlab.GroupAccessToken{}
+	token.ID = 1
+	newestToken := groupAccessToken(2, time.Now().Add(-2*time.Hour))
+
+	shouldDelete := checkGroupTokenDeletion(repo, token, newestToken)
+
+	assert.False(t, shouldDelete)
+}
+
 func TestDeleteGroupTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testing.T) {
 	groupName := "platform"
 	repo := &repository.Repository{Name: "platform", GroupName: &groupName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
@@ -105,6 +116,32 @@ func TestDeleteGroupTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod(t
 		"/api/v4/groups/42/access_tokens/1",
 		"/api/v4/groups/42/access_tokens/2",
 	}, deleteCalls)
+}
+
+func TestDeleteGroupTokens_ShouldReturnRevokeErrors(t *testing.T) {
+	groupName := "platform"
+	repo := &repository.Repository{Name: "platform", GroupName: &groupName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
+	client := newGroupTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups":
+			_, _ = w.Write([]byte(`[{"id":42,"name":"platform"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
+			_, _ = w.Write([]byte(fmt.Sprintf(`[
+				{"id":1,"name":"tc-platform-old","created_at":%q},
+				{"id":2,"name":"tc-platform-newest","created_at":%q}
+			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-48*time.Hour).Format(time.RFC3339))))
+		case r.Method == http.MethodDelete:
+			http.Error(w, "revoke failed", http.StatusInternalServerError)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusNotFound)
+		}
+	})
+
+	err := DeleteGroupTokens(client, repo, "tc")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deleting token")
 }
 
 func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing.T) {

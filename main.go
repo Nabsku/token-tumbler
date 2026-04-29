@@ -12,7 +12,6 @@ import (
 	"github.com/nabsku/token-chaser/internal/secrets"
 	"github.com/nabsku/token-chaser/internal/types/repository"
 
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -43,6 +42,9 @@ func readConfig() (*repository.Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := repoConfig.Validate(); err != nil {
+		return nil, err
+	}
 
 	return &repoConfig, nil
 }
@@ -51,7 +53,7 @@ func NewClient() (*gitlab.Client, error) {
 	newConfig := config.NewConfig()
 	gitlabClient, err := gitlab.NewClient(newConfig.GitlabToken, gitlab.WithBaseURL(newConfig.GitlabUrl))
 	if err != nil {
-		return &gitlab.Client{}, err
+		return nil, err
 	}
 
 	return gitlabClient, nil
@@ -70,30 +72,36 @@ func checkEnvVars(vars ...string) error {
 	return nil
 }
 
-func secretStoreForToken(entry *repository.Repository, token string) secrets.SecretStore {
-	switch strings.ToLower(entry.SecretStore) {
+func secretStoreForToken(entry *repository.Repository, token string) (secrets.SecretStore, error) {
+	switch strings.ToLower(strings.TrimSpace(entry.SecretStore)) {
+	case "none":
+		return nil, nil
 	case "vault":
+		if entry.VaultPath == nil || entry.VaultKey == nil || entry.Mount == nil {
+			return nil, fmt.Errorf("%w: vaultPath, vaultKey, and vaultMount are required", repository.ErrInvalidRepositoryConfig)
+		}
 		return &secrets.VaultSecret{
 			Path:      *entry.VaultPath,
 			Key:       *entry.VaultKey,
 			Value:     token,
 			MountPath: *entry.Mount,
-		}
+		}, nil
 	default:
-		return nil
+		return nil, fmt.Errorf("%w: unsupported secret store %q", repository.ErrInvalidRepositoryConfig, entry.SecretStore)
 	}
 }
 
-func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore) {
+func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore) error {
 	if secret == nil {
-		return
+		return nil
 	}
 
 	l := logger.GetLogger()
 	l.Info(fmt.Sprintf("Writing Secret to selected secret store (%v).", entry.SecretStore))
 	if err := secret.Write(ctx); err != nil {
-		panic(err)
+		return fmt.Errorf("writing secret to %s: %w", entry.SecretStore, err)
 	}
+	return nil
 }
 
 func matchingGroupTokens(tokens []*gitlab.GroupAccessToken, entry *repository.Repository, prefix string, index int) []*gitlab.GroupAccessToken {
@@ -104,7 +112,7 @@ func matchingGroupTokens(tokens []*gitlab.GroupAccessToken, entry *repository.Re
 			matches = append(matches, token)
 		} else if err != nil {
 			l.Debug(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
-			break
+			continue
 		}
 	}
 	return matches
@@ -119,42 +127,32 @@ func matchingProjectTokens(tokens []*gitlab.ProjectAccessToken, entry *repositor
 			matches = append(matches, token)
 		} else if err != nil {
 			l.Debug(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
-			break
+			continue
 		}
 	}
 	return matches
 }
 
-func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Error occurred while processing group tokens: ", r)
-		}
-	}()
-
+func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) error {
 	l := logger.GetLogger()
 
 	var groupToken *gitlab.GroupAccessToken
 
 	info, err := group.GatherGroup(gitlabClient, entry)
 	if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.GroupName, index, err)
 	}
 
 	if info == nil {
-		l.Error(fmt.Errorf("no group returned for %v, skipping", *entry.GroupName).Error())
-		return
+		return fmt.Errorf("no group returned for %v, skipping", *entry.GroupName)
 	}
 
 	tokenInfo, err := group.GatherGroupTokenInfo(gitlabClient, info.ID)
 
 	if errors.Is(err, group.ErrTooManyGroupsInSearch) {
-		l.Error(fmt.Errorf(errorString, *entry.GroupName, index, group.ErrTooManyGroupsInSearch).Error())
-		return
+		return fmt.Errorf(errorString, *entry.GroupName, index, group.ErrTooManyGroupsInSearch)
 	} else if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.GroupName, index, err)
 	}
 
 	tokenQueue := matchingGroupTokens(tokenInfo, entry, yamlConfig.Prefix, index)
@@ -163,22 +161,21 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		l.Info(fmt.Sprintf("No token in group %v yet, we're free to create one as we please.", *entry.GroupName))
 		token, errTokenCreation := group.CreateNewGroupToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errTokenCreation != nil {
-			l.Error(fmt.Errorf(errorString, *entry.GroupName, index, errTokenCreation).Error())
+			return fmt.Errorf(errorString, *entry.GroupName, index, errTokenCreation)
 		}
 		groupToken = token
 	}
 
 	needsRenewal, err := group.CheckGroupTokensForRenewal(tokenQueue, entry)
 	if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.GroupName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.GroupName, index, err)
 	}
 
 	if needsRenewal {
 		l.Info(fmt.Sprintf("Token for %v in Group %v is ready to be renewed.\n", entry.Name, *entry.GroupName))
 		token, errRenewal := group.RenewGroupAccessToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errRenewal != nil {
-			l.Error(fmt.Errorf(errorString, entry.Name, index, errRenewal).Error())
+			return fmt.Errorf(errorString, entry.Name, index, errRenewal)
 		}
 		groupToken = token
 	} else {
@@ -186,42 +183,36 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	}
 
 	if groupToken == nil {
-		return
+		return nil
 	}
 
-	writeSecret(ctx, entry, secretStoreForToken(entry, groupToken.Token))
+	secret, err := secretStoreForToken(entry, groupToken.Token)
+	if err != nil {
+		return err
+	}
+	return writeSecret(ctx, entry, secret)
 }
 
-func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) {
-	defer func() {
-		if r := recover(); r != nil {
-			log.Println("Error occurred while processing project tokens: ", r)
-		}
-	}()
-
+func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) error {
 	var projectToken *gitlab.ProjectAccessToken
 
 	l := logger.GetLogger()
 
 	info, err := project.GatherProject(gitlabClient, entry)
 	if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.RepoName, index, err)
 	}
 
 	if info == nil {
-		l.Error(fmt.Errorf("no project returned for %v, skipping", *entry.RepoName).Error())
-		return
+		return fmt.Errorf("no project returned for %v, skipping", *entry.RepoName)
 	}
 
 	tokenInfo, err := project.GatherProjectTokenInfo(gitlabClient, info.ID)
 
 	if errors.Is(err, project.ErrTooManyProjectsInSearch) {
-		l.Error(fmt.Errorf(errorString, *entry.RepoName, index, project.ErrTooManyProjectsInSearch).Error())
-		return
+		return fmt.Errorf(errorString, *entry.RepoName, index, project.ErrTooManyProjectsInSearch)
 	} else if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.RepoName, index, err)
 	}
 
 	tokenQueue := matchingProjectTokens(tokenInfo, entry, yamlConfig.Prefix, index)
@@ -231,23 +222,21 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 
 		token, errTokenCreation := project.CreateNewProjectToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errTokenCreation != nil {
-			l.Error(fmt.Errorf(errorString, *entry.RepoName, index, errTokenCreation).Error())
-			return
+			return fmt.Errorf(errorString, *entry.RepoName, index, errTokenCreation)
 		}
 		projectToken = token
 	}
 
 	needsRenewal, err := project.CheckProjectTokensForRenewal(tokenQueue, entry)
 	if err != nil {
-		l.Error(fmt.Errorf(errorString, *entry.RepoName, index, err).Error())
-		return
+		return fmt.Errorf(errorString, *entry.RepoName, index, err)
 	}
 
 	if needsRenewal {
 		l.Info(fmt.Sprintf("Token for %v in Repo %v is ready to be renewed.\n", entry.Name, *entry.RepoName))
 		token, errRenewal := project.RenewProjectAccessToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errRenewal != nil {
-			l.Error(fmt.Errorf(errorString, entry.Name, index, errRenewal).Error())
+			return fmt.Errorf(errorString, entry.Name, index, errRenewal)
 		}
 		projectToken = token
 	} else {
@@ -255,17 +244,31 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	}
 
 	if projectToken == nil {
-		return
+		return nil
 	}
 
-	writeSecret(ctx, entry, secretStoreForToken(entry, projectToken.Token))
+	secret, err := secretStoreForToken(entry, projectToken.Token)
+	if err != nil {
+		return err
+	}
+	return writeSecret(ctx, entry, secret)
 }
 
 func main() {
 	l := logger.GetLogger()
 
-	if err := checkEnvVars("GITLAB_TOKEN", "GITLAB_URL", "APPROLE_ID", "APPROLE_SECRET"); err != nil {
+	if err := checkEnvVars("GITLAB_TOKEN", "GITLAB_URL"); err != nil {
 		l.Fatal("the following error occurred:", zap.Error(err))
+	}
+
+	yamlConfig, err := readConfig()
+	if err != nil {
+		l.Fatal("reading the yamlConfig failed", zap.Error(err))
+	}
+	if yamlConfig.UsesVault() {
+		if err := checkEnvVars("APPROLE_ID", "APPROLE_SECRET"); err != nil {
+			l.Fatal("the following error occurred:", zap.Error(err))
+		}
 	}
 
 	gitlabClient, err := NewClient()
@@ -273,16 +276,12 @@ func main() {
 		l.Fatal("initialising the gitlab client failed", zap.Error(err))
 	}
 
-	yamlConfig, err := readConfig()
-	if err != nil {
-		l.Fatal("reading the yamlConfig failed", zap.Error(err))
-	}
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
 
-	for range time.Tick(delay) {
+	for range ticker.C {
 		for index, repo := range yamlConfig.Repos {
 			ctx := context.Background()
-
-			context.WithValue(ctx, "token", repo.Name)
 			if err := repo.CheckKeyRotationAndTokenAge(); err != nil {
 				l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, err))
 				continue
@@ -292,19 +291,23 @@ func main() {
 				continue
 			}
 			if repo.GroupName != nil {
-				context.WithValue(ctx, "group", repo.GroupName)
-				processGroupTokens(ctx, gitlabClient, &repo, index, yamlConfig)
-				err := group.DeleteGroupTokens(gitlabClient, &repo, yamlConfig.Prefix)
-				if err != nil {
-					return
+				if err := processGroupTokens(ctx, gitlabClient, &repo, index, yamlConfig); err != nil {
+					l.Error(err.Error())
+					continue
+				}
+				if err := group.DeleteGroupTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
+					l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
+					continue
 				}
 			}
 			if repo.RepoName != nil {
-				context.WithValue(ctx, "repository", repo.RepoName)
-				processProjectTokens(ctx, gitlabClient, &repo, index, yamlConfig)
-				err := project.DeleteProjectTokens(gitlabClient, &repo, yamlConfig.Prefix)
-				if err != nil {
-					return
+				if err := processProjectTokens(ctx, gitlabClient, &repo, index, yamlConfig); err != nil {
+					l.Error(err.Error())
+					continue
+				}
+				if err := project.DeleteProjectTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
+					l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
+					continue
 				}
 			}
 		}

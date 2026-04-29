@@ -2,12 +2,13 @@ package helper
 
 import (
 	"os"
+	"strings"
 )
 
 func CheckAndGetEnvVar(name string) bool {
 	if name == "" {
 		return false
 	}
-	_, ok := os.LookupEnv(name)
-	return ok
+	value, ok := os.LookupEnv(name)
+	return ok && strings.TrimSpace(value) != ""
 }

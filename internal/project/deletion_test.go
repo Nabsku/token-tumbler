@@ -44,6 +44,17 @@ func TestCheckProjectTokenDeletion_ShouldNotDelete(t *testing.T) {
 	assert.False(t, shouldNotDeleteNewestToken)
 }
 
+func TestCheckProjectTokenDeletion_ShouldNotDeleteTokenWithUnknownCreationDate(t *testing.T) {
+	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: time.Hour}}
+	token := &gitlab.ProjectAccessToken{}
+	token.ID = 1
+	newestToken := projectAccessToken(2, time.Now().Add(-2*time.Hour))
+
+	shouldDelete := checkProjectTokenDeletion(repo, token, newestToken)
+
+	assert.False(t, shouldDelete)
+}
+
 func projectAccessToken(id int, createdAt time.Time) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.ID = id
@@ -116,6 +127,32 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 		"/api/v4/projects/42/access_tokens/1",
 		"/api/v4/projects/42/access_tokens/2",
 	}, deleteCalls)
+}
+
+func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
+	repoName := "service"
+	repo := &repository.Repository{Name: "service", RepoName: &repoName, GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
+	client := newProjectTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects":
+			_, _ = w.Write([]byte(`[{"id":42,"name":"service"}]`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
+			_, _ = w.Write([]byte(fmt.Sprintf(`[
+				{"id":1,"name":"tc-service-old","created_at":%q},
+				{"id":2,"name":"tc-service-newest","created_at":%q}
+			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-48*time.Hour).Format(time.RFC3339))))
+		case r.Method == http.MethodDelete:
+			http.Error(w, "revoke failed", http.StatusInternalServerError)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusNotFound)
+		}
+	})
+
+	err := DeleteProjectTokens(client, repo, "tc")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deleting token")
 }
 
 func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing.T) {

@@ -14,12 +14,12 @@ func TestCheckAndGetEnvVar_ShouldReturnTrue(t *testing.T) {
 	assert.True(t, test)
 }
 
-func TestCheckAndGetEnvVar_ShouldReturnTrueForEmptyEnvValue(t *testing.T) {
+func TestCheckAndGetEnvVar_ShouldReturnFalseForEmptyEnvValue(t *testing.T) {
 	t.Setenv("TOKEN_CHASER_TEST_EMPTY_ENV", "")
 
 	test := CheckAndGetEnvVar("TOKEN_CHASER_TEST_EMPTY_ENV")
 
-	assert.True(t, test)
+	assert.False(t, test)
 }
 
 func TestCheckAndGetEnvVar_ShouldReturnFalse(t *testing.T) {
