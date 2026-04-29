@@ -24,7 +24,7 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 		return fmt.Errorf("no projects found for %s", *repo.RepoName)
 	}
 
-	tokens, _, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(project.ID, nil)
+	tokens, err := GatherProjectTokenInfo(gitlabClient, project.ID)
 	if err != nil {
 		l.Error(fmt.Errorf("error fetching project tokens for %s: %v", *repo.RepoName, err).Error())
 		return err

@@ -28,9 +28,21 @@ func GatherProject(gitlabClient *gitlab.Client, entry *repository.Repository) (*
 }
 
 func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int) ([]*gitlab.ProjectAccessToken, error) {
-	projectTokens, _, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projectID, nil)
-	if err != nil {
-		return nil, err
+	options := &gitlab.ListProjectAccessTokensOptions{
+		ListOptions: gitlab.ListOptions{PerPage: 100},
+	}
+	var projectTokens []*gitlab.ProjectAccessToken
+
+	for {
+		pageTokens, response, err := gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projectID, options)
+		if err != nil {
+			return nil, err
+		}
+		projectTokens = append(projectTokens, pageTokens...)
+		if response == nil || response.NextPage == 0 {
+			break
+		}
+		options.Page = response.NextPage
 	}
 
 	return projectTokens, nil

@@ -28,16 +28,26 @@ func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gi
 }
 
 func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int) ([]*gitlab.GroupAccessToken, error) {
-	groupTokens, _, err := gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, nil)
-	if err != nil {
-		return nil, err
+	options := &gitlab.ListGroupAccessTokensOptions{PerPage: 100}
+	var groupTokens []*gitlab.GroupAccessToken
+
+	for {
+		pageTokens, response, err := gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options)
+		if err != nil {
+			return nil, err
+		}
+		groupTokens = append(groupTokens, pageTokens...)
+		if response == nil || response.NextPage == 0 {
+			break
+		}
+		options.Page = response.NextPage
 	}
 
 	return groupTokens, nil
 }
 
 func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
-	groupTokens, _, err := gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, nil)
+	groupTokens, err := GatherGroupTokenInfo(gitlabClient, groupID)
 	if err != nil {
 		return nil, err
 	}
