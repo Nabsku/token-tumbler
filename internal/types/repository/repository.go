@@ -145,6 +145,9 @@ func (r *Repository) Validate() error {
 	if r.Lifetime.ToDuration() == 0 {
 		return fmt.Errorf("%w: lifetime is required", ErrInvalidRepositoryConfig)
 	}
+	if err := r.validateDurations(); err != nil {
+		return err
+	}
 	if strings.TrimSpace(r.SecretStore) == "" {
 		return fmt.Errorf("%w: secretStore is required; use \"none\" to disable persistence explicitly", ErrInvalidRepositoryConfig)
 	}
@@ -155,6 +158,19 @@ func (r *Repository) Validate() error {
 		return err
 	}
 	return r.CheckKeyRotationAndTokenAge()
+}
+
+func (r *Repository) validateDurations() error {
+	if r.Lifetime.ToDuration() <= 0 {
+		return fmt.Errorf("%w: lifetime must be greater than zero", ErrInvalidRepositoryConfig)
+	}
+	if r.RotationThreshold.ToDuration() <= 0 {
+		return fmt.Errorf("%w: rotationThreshold must be greater than zero", ErrInvalidRepositoryConfig)
+	}
+	if r.GracePeriod.ToDuration() < 0 {
+		return fmt.Errorf("%w: gracePeriod cannot be negative", ErrInvalidRepositoryConfig)
+	}
+	return nil
 }
 
 func (r *Repository) validateTarget() error {

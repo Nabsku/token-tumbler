@@ -161,6 +161,36 @@ func TestConfig_Validate(t *testing.T) {
 
 		require.NoError(t, err)
 	})
+
+	t.Run("rejects non-positive lifetime", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.Lifetime = Duration{Duration: -1 * time.Hour}
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "lifetime must be greater than zero")
+	})
+
+	t.Run("rejects non-positive rotation threshold", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.RotationThreshold = &Duration{Duration: 0}
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "rotationThreshold must be greater than zero")
+	})
+
+	t.Run("rejects negative grace period", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.GracePeriod = &Duration{Duration: -1 * time.Hour}
+
+		err := (&Config{Prefix: "tc", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "gracePeriod cannot be negative")
+	})
 }
 
 func TestConfig_UsesVault(t *testing.T) {
