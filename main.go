@@ -121,7 +121,11 @@ func writeSecret(ctx context.Context, entry *repository.Repository, secret secre
 	}
 
 	l := logger.GetLogger()
-	l.Info(fmt.Sprintf("Writing Secret to selected secret store (%v).", entry.SecretStore))
+	l.Info("Writing secret to selected secret store",
+		zap.String("operation", "secret_write"),
+		zap.String("secret_store", entry.SecretStore),
+		zap.String("token_name", entry.Name),
+	)
 	if err := secret.Write(ctx); err != nil {
 		return fmt.Errorf("writing secret to %s: %w", entry.SecretStore, err)
 	}
@@ -285,46 +289,110 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 }
 
 func processRepository(ctx context.Context, gitlabClient *gitlab.Client, repo repository.Repository, index int, yamlConfig *repository.Config) {
-	l := logger.GetLogger()
+	started := time.Now()
+	l := logger.GetLogger().With(repositoryLogFields(repo, index)...)
 	entryCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
+	l.Info("Started repository processing",
+		zap.String("operation", "repository_process"),
+		zap.String("outcome", "started"),
+	)
+	defer func() {
+		l.Info("Finished repository processing",
+			zap.String("operation", "repository_process"),
+			zap.String("outcome", "finished"),
+			zap.Duration("duration", time.Since(started)),
+		)
+	}()
 
 	if err := repo.CheckKeyRotationAndTokenAge(); err != nil {
-		l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, err))
+		l.Warn("Repository configuration failed validation",
+			zap.String("operation", "config_validate"),
+			zap.String("outcome", "failed"),
+			zap.Error(err),
+		)
 		return
 	}
 	if repo.GroupName != nil && repo.RepoName != nil {
-		l.Warn(fmt.Sprintf("while processing %v at index %v, the following error occurred: %v", repo.Name, index, ErrGroupAndRepoDefined))
+		l.Warn("Repository target failed validation",
+			zap.String("operation", "target_validate"),
+			zap.String("outcome", "failed"),
+			zap.Error(ErrGroupAndRepoDefined),
+		)
 		return
 	}
 	if repo.GroupName != nil {
 		if err := processGroupTokens(entryCtx, gitlabClient, &repo, index, yamlConfig); err != nil {
-			l.Error(err.Error())
+			l.Error("Group token processing failed",
+				zap.String("operation", "token_process"),
+				zap.String("outcome", "failed"),
+				zap.Error(err),
+			)
 			return
 		}
 		if err := entryCtx.Err(); err != nil {
-			l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
+			l.Error("Group token processing context ended",
+				zap.String("operation", "token_process"),
+				zap.String("outcome", "canceled"),
+				zap.Error(err),
+			)
 			return
 		}
 		if err := group.DeleteGroupTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
-			l.Error(fmt.Errorf(errorString, *repo.GroupName, index, err).Error())
+			l.Error("Group token deletion failed",
+				zap.String("operation", "token_delete"),
+				zap.String("outcome", "failed"),
+				zap.Error(err),
+			)
 			return
 		}
 	}
 	if repo.RepoName != nil {
 		if err := processProjectTokens(entryCtx, gitlabClient, &repo, index, yamlConfig); err != nil {
-			l.Error(err.Error())
+			l.Error("Project token processing failed",
+				zap.String("operation", "token_process"),
+				zap.String("outcome", "failed"),
+				zap.Error(err),
+			)
 			return
 		}
 		if err := entryCtx.Err(); err != nil {
-			l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
+			l.Error("Project token processing context ended",
+				zap.String("operation", "token_process"),
+				zap.String("outcome", "canceled"),
+				zap.Error(err),
+			)
 			return
 		}
 		if err := project.DeleteProjectTokens(gitlabClient, &repo, yamlConfig.Prefix); err != nil {
-			l.Error(fmt.Errorf(errorString, *repo.RepoName, index, err).Error())
+			l.Error("Project token deletion failed",
+				zap.String("operation", "token_delete"),
+				zap.String("outcome", "failed"),
+				zap.Error(err),
+			)
 			return
 		}
 	}
+}
+
+func repositoryLogFields(repo repository.Repository, index int) []zap.Field {
+	fields := []zap.Field{
+		zap.Int("repository_index", index),
+		zap.String("token_name", repo.Name),
+	}
+	if repo.GroupName != nil {
+		fields = append(fields,
+			zap.String("target_type", "group"),
+			zap.String("target", *repo.GroupName),
+		)
+	}
+	if repo.RepoName != nil {
+		fields = append(fields,
+			zap.String("target_type", "project"),
+			zap.String("target", *repo.RepoName),
+		)
+	}
+	return fields
 }
 
 func main() {
