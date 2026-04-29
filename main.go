@@ -30,10 +30,26 @@ var (
 )
 
 const (
-	delay                   = time.Duration(2) * time.Second
-	operationTimeout        = 30 * time.Second
-	errorString      string = "while processing %v at index %v, the following error occurred: %w"
+	defaultPollInterval        = 5 * time.Minute
+	operationTimeout           = 30 * time.Second
+	errorString         string = "while processing %v at index %v, the following error occurred: %w"
+	pollIntervalEnvVar         = "TOKEN_CHASER_INTERVAL"
 )
+
+func pollIntervalFromEnv() (time.Duration, error) {
+	value := strings.TrimSpace(os.Getenv(pollIntervalEnvVar))
+	if value == "" {
+		return defaultPollInterval, nil
+	}
+	interval, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", pollIntervalEnvVar, err)
+	}
+	if interval <= 0 {
+		return 0, fmt.Errorf("invalid %s: must be greater than zero", pollIntervalEnvVar)
+	}
+	return interval, nil
+}
 
 func readConfig() (*repository.Config, error) {
 	buff, err := os.ReadFile("config.yaml")
@@ -335,7 +351,11 @@ func main() {
 		l.Fatal("initialising the gitlab client failed", zap.Error(err))
 	}
 
-	ticker := time.NewTicker(delay)
+	pollInterval, err := pollIntervalFromEnv()
+	if err != nil {
+		l.Fatal("reading poll interval failed", zap.Error(err))
+	}
+	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for {
