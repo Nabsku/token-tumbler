@@ -86,6 +86,7 @@ Token Tumbler is deliberately conservative:
 - Cleanup only revokes prefixed, active, non-revoked tokens older than the configured grace period.
 - The newest matching token is never revoked.
 - Tokens with missing creation timestamps are never selected as the newest cleanup candidate.
+- Duplicate config entries for the same prefix, target type, target, and token name are rejected.
 
 ## Requirements
 
@@ -183,6 +184,8 @@ Each entry must define exactly one target:
 
 Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
 
+Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. This prevents two config entries from creating or cleaning up the same logical GitLab token.
+
 ### Secret stores
 
 | Store | Description |
@@ -223,6 +226,7 @@ Fast validation:
 
 ```sh
 go test ./...
+go test -race ./...
 go vet ./...
 go build ./...
 ```
