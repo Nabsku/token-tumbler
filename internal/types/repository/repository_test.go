@@ -191,6 +191,27 @@ func TestConfig_Validate(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "gracePeriod cannot be negative")
 	})
+
+	t.Run("rejects duplicate project token target", func(t *testing.T) {
+		first := validRepositoryConfig()
+		second := validRepositoryConfig()
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{first, second}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "duplicate token target")
+	})
+
+	t.Run("allows same token name on different target types", func(t *testing.T) {
+		project := validRepositoryConfig()
+		group := validRepositoryConfig()
+		group.RepoName = nil
+		group.GroupName = gitlab.Ptr("service")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{project, group}}).Validate()
+
+		require.NoError(t, err)
+	})
 }
 
 func TestConfig_UsesVault(t *testing.T) {
