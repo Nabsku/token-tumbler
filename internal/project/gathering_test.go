@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func TestGatherProject(t *testing.T) {
 			})
 			repoName := "service"
 
-			got, err := GatherProject(client, &repository.Repository{RepoName: &repoName})
+			got, err := GatherProject(context.Background(), client, &repository.Repository{RepoName: &repoName})
 
 			if tt.wantError != nil {
 				require.Error(t, err)
@@ -60,7 +61,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-old"},{"id":2,"name":"tt-service-new"}]`))
 		})
 
-		got, err := GatherProjectTokenInfo(client, 42)
+		got, err := GatherProjectTokenInfo(context.Background(), client, 42)
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
@@ -86,7 +87,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			}
 		})
 
-		got, err := GatherProjectTokenInfo(client, 42)
+		got, err := GatherProjectTokenInfo(context.Background(), client, 42)
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
@@ -99,7 +100,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			_, _ = w.Write([]byte(`{"message":"boom"}`))
 		})
 
-		got, err := GatherProjectTokenInfo(client, 42)
+		got, err := GatherProjectTokenInfo(context.Background(), client, 42)
 
 		require.Error(t, err)
 		assert.Nil(t, got)

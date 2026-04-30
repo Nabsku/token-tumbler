@@ -1,6 +1,7 @@
 package group
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -12,8 +13,8 @@ import (
 
 var ErrNoGroupsInSearch = errors.New("no groups found in your query")
 
-func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Group, error) {
-	group, response, err := gitlabClient.Groups.GetGroup(*entry.GroupName, nil)
+func GatherGroup(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository) (*gitlab.Group, error) {
+	group, response, err := gitlabClient.Groups.GetGroup(*entry.GroupName, nil, gitlab.WithContext(ctx))
 	if err != nil {
 		if response != nil && response.StatusCode == http.StatusNotFound {
 			return nil, ErrNoGroupsInSearch
@@ -27,11 +28,12 @@ func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gi
 	return group, nil
 }
 
-func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int64) ([]*gitlab.GroupAccessToken, error) {
+func GatherGroupTokenInfo(ctx context.Context, gitlabClient *gitlab.Client, groupID int64) ([]*gitlab.GroupAccessToken, error) {
 	options := &gitlab.ListGroupAccessTokensOptions{ListOptions: gitlab.ListOptions{PerPage: 100}}
 	return gitlabutil.CollectPages(
+		ctx,
 		func() ([]*gitlab.GroupAccessToken, *gitlab.Response, error) {
-			return gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options)
+			return gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options, gitlab.WithContext(ctx))
 		},
 		func(page int64) {
 			options.Page = page
@@ -39,8 +41,8 @@ func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int64) ([]*gitlab
 	)
 }
 
-func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int64, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
-	groupTokens, err := GatherGroupTokenInfo(gitlabClient, groupID)
+func GatherGroupTokenInfoByPrefix(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
+	groupTokens, err := GatherGroupTokenInfo(ctx, gitlabClient, groupID)
 	if err != nil {
 		return nil, err
 	}

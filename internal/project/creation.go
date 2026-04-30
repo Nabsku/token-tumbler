@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/nabsku/token-tumbler/internal/logger"
@@ -14,7 +15,7 @@ import (
 
 var ErrInvalidProjectTokenResponse = errors.New("invalid project access token response")
 
-func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int64, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
+func CreateNewProjectToken(ctx context.Context, gitlabClient *gitlab.Client, projectID int64, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
 	l := logger.GetLogger()
 
 	l.Debug("creating new project token", zap.String("repo", *entry.RepoName))
@@ -28,7 +29,7 @@ func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int64, entry *
 		return nil, err
 	}
 
-	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
+	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
 
 	if err != nil {
 		return nil, err
@@ -40,10 +41,14 @@ func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int64, entry *
 	return token, nil
 }
 
-func createPATokenWithTokenOptions(gitlabClient *gitlab.Client, projectID int64, name string, permissions []string, t *time.Time) (*gitlab.ProjectAccessToken, error) {
+func createPATokenWithTokenOptions(ctx context.Context, gitlabClient *gitlab.Client, projectID int64, name string, permissions []string, t *time.Time) (*gitlab.ProjectAccessToken, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	options := createProjectAccessTokenOptions(name, permissions, t)
 
-	token, _, err := gitlabClient.ProjectAccessTokens.CreateProjectAccessToken(projectID, options)
+	token, _, err := gitlabClient.ProjectAccessTokens.CreateProjectAccessToken(projectID, options, gitlab.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +56,7 @@ func createPATokenWithTokenOptions(gitlabClient *gitlab.Client, projectID int64,
 	return token, nil
 }
 
-func RenewProjectAccessToken(gitlabClient *gitlab.Client, projectID int64, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
+func RenewProjectAccessToken(ctx context.Context, gitlabClient *gitlab.Client, projectID int64, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
 	tokenName, err := entry.NewTokenName(prefix)
 	if err != nil {
 		return nil, err
@@ -61,7 +66,7 @@ func RenewProjectAccessToken(gitlabClient *gitlab.Client, projectID int64, entry
 		return nil, err
 	}
 
-	token, err := createPATokenWithTokenOptions(gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
+	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, expiryDate)
 
 	if err != nil {
 		return nil, err

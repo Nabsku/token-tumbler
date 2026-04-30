@@ -1,6 +1,7 @@
 package group
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func TestGatherGroup(t *testing.T) {
 			})
 			groupName := "platform"
 
-			got, err := GatherGroup(client, &repository.Repository{GroupName: &groupName})
+			got, err := GatherGroup(context.Background(), client, &repository.Repository{GroupName: &groupName})
 
 			if tt.wantError != nil {
 				require.Error(t, err)
@@ -60,7 +61,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-old"},{"id":2,"name":"tt-platform-new"}]`))
 		})
 
-		got, err := GatherGroupTokenInfo(client, 42)
+		got, err := GatherGroupTokenInfo(context.Background(), client, 42)
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
@@ -86,7 +87,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			}
 		})
 
-		got, err := GatherGroupTokenInfo(client, 42)
+		got, err := GatherGroupTokenInfo(context.Background(), client, 42)
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
@@ -99,7 +100,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			_, _ = w.Write([]byte(`{"message":"boom"}`))
 		})
 
-		got, err := GatherGroupTokenInfo(client, 42)
+		got, err := GatherGroupTokenInfo(context.Background(), client, 42)
 
 		require.Error(t, err)
 		assert.Nil(t, got)
@@ -119,7 +120,7 @@ func TestGatherGroupTokenInfoByPrefix(t *testing.T) {
 		]`))
 	})
 
-	got, err := GatherGroupTokenInfoByPrefix(client, 42, "tt", repository.Repository{Name: "platform"})
+	got, err := GatherGroupTokenInfoByPrefix(context.Background(), client, 42, "tt", repository.Repository{Name: "platform"})
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)

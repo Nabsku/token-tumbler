@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestCreateProjectAccessTokenOptions(t *testing.T) {
 }
 
 func TestRenewProjectAccessToken_ShouldValidateTokenNameBeforeGitLabCall(t *testing.T) {
-	token, err := RenewProjectAccessToken(nil, 1, &repository.Repository{}, "tt")
+	token, err := RenewProjectAccessToken(context.Background(), nil, 1, &repository.Repository{}, "tt")
 
 	require.Error(t, err)
 	assert.Nil(t, token)

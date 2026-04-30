@@ -2,17 +2,43 @@ package secrets
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/nabsku/token-tumbler/internal/helper"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 )
 
+type TokenMetadata struct {
+	TokenID   int64     `json:"token_id"`
+	TokenName string    `json:"token_name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func parseTokenMetadata(data string) (TokenMetadata, error) {
+	var meta TokenMetadata
+	if err := json.Unmarshal([]byte(data), &meta); err != nil {
+		return TokenMetadata{}, err
+	}
+	return meta, nil
+}
+
+func formatTokenMetadata(meta TokenMetadata) (string, error) {
+	b, err := json.Marshal(meta)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 type SecretStore interface {
 	Read(ctx context.Context) (string, error)
 	Write(ctx context.Context, value string) error
 	InitClient(ctx context.Context) error
+	ReadMetadata(ctx context.Context) (TokenMetadata, error)
+	WriteMetadata(ctx context.Context, meta TokenMetadata) error
 }
 
 func ForRepository(entry *repository.Repository) (SecretStore, error) {
