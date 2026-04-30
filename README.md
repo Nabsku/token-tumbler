@@ -37,66 +37,7 @@ flowchart LR
     Cleanup --> GitLab
 ```
 
-## Rotation flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant T as Token Tumbler
-    participant C as config.yaml
-    participant G as GitLab API
-    participant S as Secret Store
-
-    T->>C: Load and validate targets
-    loop Every TOKEN_TUMBLER_INTERVAL
-        T->>G: Resolve project or group
-        T->>G: List active matching tokens
-        alt No matching token exists
-            T->>G: Create replacement token
-            G-->>T: Token value, id, expiry
-            T->>S: Persist token value
-            S-->>T: Write success
-            T->>G: Revoke stale prefixed tokens after grace period
-        else All matching tokens are near expiry
-            T->>G: Create renewed token
-            G-->>T: Token value, id, expiry
-            T->>S: Persist token value
-            S-->>T: Write success
-            T->>G: Revoke stale prefixed tokens after grace period
-        else A healthy token exists
-            T-->>T: Leave tokens unchanged
-        end
-    end
-```
-
-## Safety model
-
-```mermaid
-flowchart TD
-    Start[Need create or renewal?] -->|No| Stop[Do nothing]
-    Start -->|Yes| Create[Create new GitLab token]
-    Create --> Store[Write token value to secret store]
-    Store -->|Fails| Keep[Keep existing tokens and fail closed]
-    Store -->|Succeeds| Delete[Delete only old active prefixed tokens]
-    Delete --> Preserve[Always preserve newest token]
-```
-
-Token Tumbler is deliberately conservative:
-
-- Generated GitLab token values are only available at creation time, so the secret write must succeed before old tokens are revoked.
-- Unsupported or missing secret stores fail closed.
-- Cleanup only revokes prefixed, active, non-revoked tokens older than the configured grace period.
-- The newest matching token is never revoked.
-- Tokens with missing creation timestamps are never selected as the newest cleanup candidate.
-- Duplicate config entries for the same prefix, target type, target, and token name are rejected.
-
-## Requirements
-
-- Go 1.25 or newer
-- A GitLab token with permission to list, create, and revoke project/group access tokens
-- Vault credentials appropriate for the chosen auth method when any entry uses `secretStore: vault`
-- A secure host filesystem path when any entry uses `secretStore: file`
-- Docker for the optional Testcontainers E2E suite
+See [docs/architecture.md](docs/architecture.md) for the rotation flow and safety model details.
 
 ## Quick start
 
@@ -147,130 +88,11 @@ export VAULT_K8S_TOKEN_PATH="/var/run/secrets/..."  # optional
 # No extra env vars needed; ensure AWS credentials are available
 ```
 
-## Configuration
+## Documentation
 
-```mermaid
-classDiagram
-    class Config {
-        string prefix
-        Repository[] repositories
-    }
-
-    class Repository {
-        string repoName
-        string groupName
-        string name
-        string[] permissions
-        Duration rotationThreshold
-        Duration lifetime
-        Duration gracePeriod
-        string secretStore
-        string vaultMount
-        string vaultPath
-        string vaultKey
-        string vaultAuthMethod
-        string vaultAuthRole
-        string filePath
-    }
-
-    Config "1" --> "1..*" Repository
-```
-
-### Top-level fields
-
-| Field | Required | Description |
-| --- | --- | --- |
-| `prefix` | Yes | Prefix for generated GitLab token names. Allowed characters: letters, numbers, `-`, `_`. |
-| `repositories` | Yes | Non-empty list of project or group token targets. |
-
-### Repository fields
-
-Each entry must define exactly one target:
-
-| Field | Required | Description |
-| --- | --- | --- |
-| `repoName` | One of `repoName` or `groupName` | GitLab project path or ID. |
-| `groupName` | One of `repoName` or `groupName` | GitLab group path or ID. |
-| `name` | Yes | Logical token name used in generated GitLab token names. |
-| `permissions` | Yes | GitLab token scopes, such as `api`. |
-| `rotationThreshold` | Yes | How soon before expiry a token should be renewed. |
-| `lifetime` | Yes | Maximum lifetime for newly-created tokens. Must be greater than `rotationThreshold`. |
-| `gracePeriod` | Yes | How long to keep older tokens after a newer token exists. May be `0`. |
-| `secretStore` | Yes | `vault`, `file`, or `none`. Use `none` only for intentional no-persistence runs. |
-| `vaultMount` | For Vault | Vault KVv2 mount name. |
-| `vaultPath` | For Vault | Vault KVv2 secret path. |
-| `vaultKey` | For Vault | Key inside the KVv2 secret data to write. |
-| `vaultAuthMethod` | For Vault | Auth method: `approle` (default), `token`, `kubernetes`, or `aws`. |
-| `vaultAuthRole` | For k8s/AWS | Role name for Kubernetes or AWS auth. |
-| `filePath` | For file | Destination path for the token file. Parent directory must already exist. |
-
-Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
-
-Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. This prevents two config entries from creating or cleaning up the same logical GitLab token.
-
-### Secret stores
-
-| Store | Description |
-| --- | --- |
-| `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
-| `file` | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist. |
-| `none` | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere. |
-
-Vault auth examples:
-
-```yaml
-# AppRole (default)
-secretStore: vault
-vaultAuthMethod: approle
-vaultMount: kv
-vaultPath: teams/example/project
-vaultKey: gitlab_token
-
-# Direct token
-secretStore: vault
-vaultAuthMethod: token
-vaultMount: kv
-vaultPath: teams/example/project
-vaultKey: gitlab_token
-
-# Kubernetes
-secretStore: vault
-vaultAuthMethod: kubernetes
-vaultAuthRole: my-k8s-role
-vaultMount: kv
-vaultPath: teams/example/project
-vaultKey: gitlab_token
-
-# AWS IAM
-secretStore: vault
-vaultAuthMethod: aws
-vaultAuthRole: my-aws-role
-vaultMount: kv
-vaultPath: teams/example/project
-vaultKey: gitlab_token
-```
-
-File secret-store example:
-
-```yaml
-secretStore: file
-filePath: /run/secrets/gitlab-token
-```
-
-File storage is only as safe as the host filesystem. Prefer tmpfs or encrypted disks where appropriate, protect parent directory permissions, and never commit generated token files.
-
-## Environment variables
-
-| Variable | Required | Description |
-| --- | --- | --- |
-| `GITLAB_URL` | Yes | Base URL for GitLab. |
-| `GITLAB_TOKEN` | Yes | Token with access-token management permissions. |
-| `TOKEN_TUMBLER_INTERVAL` | No | Poll interval. Defaults to `5m`. |
-| `APPROLE_ID` | For Vault AppRole | Vault AppRole role id. |
-| `APPROLE_SECRET` | For Vault AppRole | Vault AppRole secret id. |
-| `VAULT_TOKEN` | For Vault token auth | Direct Vault token. |
-| `VAULT_K8S_TOKEN_PATH` | For Vault k8s auth | Path to Kubernetes service account token. Defaults to in-cluster path. |
-| `LOG_LEVEL` | No | Logger verbosity. |
+- **[Configuration](docs/configuration.md)** - Full configuration reference with all fields, validation rules, and examples
+- **[Secret Stores](docs/secret-stores.md)** - Detailed docs for Vault (all auth methods), file store, and `none`
+- **[Development](docs/development.md)** - Running tests, E2E suite, Makefile targets, and contributing guidelines
 
 ## Token naming
 
@@ -287,54 +109,6 @@ tt-deploy-2026-04-29T12:00:00Z
 ```
 
 `prefix` is normalized, so `tt` and `tt-` behave as the same prefix family for matching and cleanup.
-
-## Development
-
-Fast validation:
-
-```sh
-go test ./...
-go test -race ./...
-go vet ./...
-go build ./...
-```
-
-Or use the Makefile:
-
-```sh
-make check
-```
-
-Useful targets:
-
-| Target | Description |
-| --- | --- |
-| `make fmt` | Format Go code. |
-| `make test` | Run unit tests. |
-| `make vet` | Run `go vet`. |
-| `make build` | Build the project. |
-| `make check` | Run formatting, tests, vet, build, and diff checks. |
-| `make e2e` | Run the GitLab/Vault Testcontainers suite. |
-| `make lint` | Run lint checks. |
-| `make vuln` | Run vulnerability checks. |
-| `make tidy` | Tidy Go modules. |
-
-The slow E2E suite starts GitLab CE and Vault with Testcontainers:
-
-```sh
-go test -tags=e2e -v ./e2e -timeout 30m
-```
-
-Optional E2E image overrides:
-
-- `TOKEN_TUMBLER_E2E_GITLAB_IMAGE`
-- `TOKEN_TUMBLER_E2E_VAULT_IMAGE`
-
-## Contributing
-
-Contributions are welcome. Please run `make check` before opening a pull request and avoid committing real GitLab tokens, Vault AppRole credentials, or production config files.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
