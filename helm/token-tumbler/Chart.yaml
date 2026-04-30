@@ -1,0 +1,19 @@
+apiVersion: v2
+name: token-tumbler
+description: A Helm chart for token-tumbler — a GitLab access token rotation worker.
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/nabsku/token-tumbler
+sources:
+  - https://github.com/nabsku/token-tumbler
+maintainers:
+  - name: nabsku
+    url: https://github.com/nabsku
+keywords:
+  - gitlab
+  - token
+  - rotation
+  - secrets
+annotations:
+  category: Developer Tools

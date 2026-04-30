@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "token-tumbler.fullname" . }}
+  labels:
+    {{- include "token-tumbler.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "token-tumbler.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "token-tumbler.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "token-tumbler.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: GITLAB_TOKEN
+            - name: GITLAB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: GITLAB_URL
+            - name: TOKEN_TUMBLER_INTERVAL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: TOKEN_TUMBLER_INTERVAL
+            {{- if or .Values.env.approleId .Values.existingSecret }}
+            - name: APPROLE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: APPROLE_ID
+            {{- end }}
+            {{- if or .Values.env.approleSecret .Values.existingSecret }}
+            - name: APPROLE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: APPROLE_SECRET
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            {{- with .Values.extraEnvFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: config
+              mountPath: /config.yaml
+              subPath: config.yaml
+            - name: tmp
+              mountPath: /tmp
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            exec:
+              command:
+                - /token-tumbler
+                - --version
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            exec:
+              command:
+                - /token-tumbler
+                - --version
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "token-tumbler.fullname" . }}
+        - name: tmp
+          emptyDir: {}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.extraContainers }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
