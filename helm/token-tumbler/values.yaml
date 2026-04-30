@@ -1,0 +1,190 @@
+# Default values for token-tumbler.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Number of replicas to run. Keep at 1 to avoid duplicate token rotations.
+replicaCount: 1
+
+image:
+  # -- Image repository for token-tumbler.
+  repository: ghcr.io/nabsku/token-tumbler
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+# -- Image pull secrets for private registries.
+imagePullSecrets: []
+
+# -- Override the chart name.
+nameOverride: ""
+
+# -- Override the full name of resources.
+fullnameOverride: ""
+
+# -- Pod annotations.
+podAnnotations: {}
+
+# -- Pod labels.
+podLabels: {}
+
+# -- Pod-level security context.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level security context.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# -- Application configuration (rendered into config.yaml).
+# Refer to the application documentation for the full schema.
+config:
+  # -- Prefix for token names.
+  prefix: tt-
+  # -- List of repositories/groups to manage tokens for.
+  repositories: []
+    # - groupName: group/example-group
+    #   name: test
+    #   permissions:
+    #     - api
+    #   rotationThreshold: 3d
+    #   lifetime: 5d
+    #   secretStore: vault
+    #   gracePeriod: 2d
+    #   vaultPath: test
+    #   vaultKey: test-secret
+    #   vaultMount: kv
+
+# -- Environment variables injected into the container.
+env:
+  # -- GitLab personal access token (required).
+  # Prefer setting via existingSecret or external secrets operator.
+  gitlabToken: ""
+  # -- GitLab base URL (required).
+  gitlabUrl: ""
+  # -- Polling interval for token checks (e.g., 5m, 1h).
+  tokenTumblerInterval: "5m"
+  # -- Vault AppRole ID (required when Vault secret store is used).
+  approleId: ""
+  # -- Vault AppRole Secret (required when Vault secret store is used).
+  approleSecret: ""
+
+# -- Use an existing secret instead of creating one from .Values.env.
+# The secret must contain the keys: GITLAB_TOKEN, GITLAB_URL, TOKEN_TUMBLER_INTERVAL,
+# APPROLE_ID, APPROLE_SECRET.
+existingSecret: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created.
+  create: true
+  # -- Automatically mount a ServiceAccount's API credentials?
+  automount: false
+  # -- Annotations to add to the service account.
+  annotations: {}
+  # -- The name of the service account to use.
+  name: ""
+
+# -- Resource requests and limits for the token-tumbler container.
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 64Mi
+
+# -- Node selector for pod scheduling.
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling.
+tolerations: []
+
+# -- Affinity rules for pod scheduling.
+affinity: {}
+
+# -- Topology spread constraints for pod distribution.
+topologySpreadConstraints: []
+
+# -- Horizontal Pod Autoscaler configuration.
+# Disabled by default because running more than one replica can cause
+# concurrent token rotations. Only enable if you implement leader election.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+  behavior: {}
+
+# -- Pod Disruption Budget configuration.
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# -- Network Policy configuration.
+networkPolicy:
+  enabled: true
+  # -- Egress rules. By default, allow HTTPS to anywhere (needed for GitLab, Vault, AWS APIs).
+  egress:
+    - to:
+        - namespaceSelector: {}
+          podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector: {}
+          podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 80
+  # -- Ingress rules. By default, deny all ingress since this is a worker without exposed ports.
+  ingress: []
+
+# -- Extra volumes to mount into the pod.
+volumes: []
+
+# -- Extra volume mounts for the container.
+volumeMounts: []
+
+# -- Startup probe configuration.
+# Disabled by default because the distroless image does not include a shell
+# and the application does not expose a lightweight health endpoint.
+# Enable only if you build a custom image with a --version or health command.
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+
+# -- Liveness probe configuration.
+# Disabled by default because the distroless image does not include a shell
+# and the application does not expose a lightweight health endpoint.
+# Enable only if you build a custom image with a --version or health command.
+livenessProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  periodSeconds: 60
+  failureThreshold: 3
+
+# -- Extra environment variables.
+extraEnv: []
+
+# -- Extra environment variables from ConfigMap/Secret sources.
+extraEnvFrom: []
+
+# -- Extra containers to run in the pod.
+extraContainers: []
+
+# -- Init containers to run before the main container.
+initContainers: []

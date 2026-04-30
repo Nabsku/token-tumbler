@@ -1,0 +1,45 @@
+.DS_Store
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Build artifacts
+*.tgz
+*.tar.gz
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+
+# Dependencies
+charts/
+Chart.lock
+
+# Tests are included so helm test works from packaged charts
+# templates/tests/
+
+# Documentation
+*.md
+README*
+LICENSE
+
+# Local values overrides
+values-*.yaml
+!values.yaml
+!values.schema.json
+
+# Scripts
+scripts/
+*.sh
