@@ -137,7 +137,9 @@ func TestFileSecret_Write_ShouldRejectWorldWritableParent(t *testing.T) {
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o707))
-	defer os.Chmod(insecureDir, 0o700)
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700))
+	}()
 
 	path := filepath.Join(insecureDir, "gitlab-token")
 	secret := &FileSecret{Path: path}
@@ -158,7 +160,9 @@ func TestFileSecret_Write_ShouldRejectGroupWritableParent(t *testing.T) {
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o770))
-	defer os.Chmod(insecureDir, 0o700)
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700))
+	}()
 
 	path := filepath.Join(insecureDir, "gitlab-token")
 	secret := &FileSecret{Path: path}

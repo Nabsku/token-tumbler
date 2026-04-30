@@ -103,26 +103,6 @@ func checkEnvVars(vars ...string) error {
 	return nil
 }
 
-func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore, token string) error {
-	if secret == nil {
-		return nil
-	}
-
-	store := strings.ToLower(strings.TrimSpace(entry.SecretStore))
-	l := logger.GetLogger()
-	l.Info("Writing secret to selected secret store",
-		zap.String("operation", "secret_write"),
-		zap.String("secret_store", entry.SecretStore),
-		zap.String("token_name", entry.Name),
-	)
-	if err := secret.Write(ctx, token); err != nil {
-		metrics.SecretStoreOperations.WithLabelValues(store, "write", "error").Inc()
-		return fmt.Errorf("writing secret to %s: %w", entry.SecretStore, err)
-	}
-	metrics.SecretStoreOperations.WithLabelValues(store, "write", "success").Inc()
-	return nil
-}
-
 func readVaultMetadata(ctx context.Context, secret secrets.SecretStore) (secrets.TokenMetadata, error) {
 	if secret == nil {
 		return secrets.TokenMetadata{}, nil
