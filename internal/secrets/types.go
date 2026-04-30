@@ -52,6 +52,16 @@ func ForRepository(entry *repository.Repository) (SecretStore, error) {
 			return nil, fmt.Errorf("%w: filePath must not be blank", repository.ErrInvalidRepositoryConfig)
 		}
 		return &FileSecret{Path: filePath}, nil
+	case "aws":
+		if entry.AWSSecretName == nil || entry.AWSRegion == nil {
+			return nil, fmt.Errorf("%w: awsSecretName and awsRegion are required for aws secret store", repository.ErrInvalidRepositoryConfig)
+		}
+		secretName := strings.TrimSpace(*entry.AWSSecretName)
+		region := strings.TrimSpace(*entry.AWSRegion)
+		if secretName == "" || region == "" {
+			return nil, fmt.Errorf("%w: awsSecretName and awsRegion must not be blank", repository.ErrInvalidRepositoryConfig)
+		}
+		return &AWSSecret{SecretName: secretName, Region: region}, nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported secret store %q", repository.ErrInvalidRepositoryConfig, entry.SecretStore)
 	}

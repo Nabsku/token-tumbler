@@ -92,6 +92,8 @@ type (
 		VaultAuthMethod   *string   `yaml:"vaultAuthMethod,omitempty"`
 		VaultAuthRole     *string   `yaml:"vaultAuthRole,omitempty"`
 		FilePath          *string   `yaml:"filePath,omitempty"`
+		AWSSecretName     *string   `yaml:"awsSecretName,omitempty"`
+		AWSRegion         *string   `yaml:"awsRegion,omitempty"`
 	}
 )
 
@@ -224,6 +226,14 @@ func (r *Repository) validateSecretStore() error {
 	case "file":
 		if r.FilePath == nil || strings.TrimSpace(*r.FilePath) == "" {
 			return fmt.Errorf("%w: filePath is required for file secret store", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	case "aws":
+		if r.AWSSecretName == nil || strings.TrimSpace(*r.AWSSecretName) == "" {
+			return fmt.Errorf("%w: awsSecretName is required for aws secret store", ErrInvalidRepositoryConfig)
+		}
+		if r.AWSRegion == nil || strings.TrimSpace(*r.AWSRegion) == "" {
+			return fmt.Errorf("%w: awsRegion is required for aws secret store", ErrInvalidRepositoryConfig)
 		}
 		return nil
 	default:

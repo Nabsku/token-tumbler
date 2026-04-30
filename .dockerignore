@@ -1,0 +1,8 @@
+.git
+.github
+dist
+.env
+config.yaml
+*.log
+e2e/
+docs/
