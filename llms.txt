@@ -1,16 +1,23 @@
 # Token Tumbler
 
-Token Tumbler is a Go daemon for rotating GitLab project and group access tokens.
+Token Tumbler is a Go daemon for safely rotating GitLab project and group access tokens. It creates replacement tokens before expiry, writes newly-created token values to a configured secret store, and only revokes older tokens after persistence succeeds.
 
 ## Important Files
 
-- `main.go`: daemon startup, config loading, token processing loop, and secret-store dispatch.
+- `main.go`: daemon startup, config loading, token processing loop, secret-store dispatch, metrics/health HTTP server, and graceful shutdown.
 - `config.yaml`: example YAML config read from the current working directory.
-- `internal/types/repository`: config model, validation, token naming, and renewal rules.
-- `internal/project`: GitLab project token gathering, creation, renewal, and cleanup.
-- `internal/group`: GitLab group token gathering, creation, renewal, and cleanup.
-- `internal/secrets`: secret-store integrations; currently Vault KVv2.
-- `e2e`: slow Testcontainers-backed tests for GitLab CE and Vault.
+- `internal/config/config.go`: simple env-var config for `GITLAB_URL` and `GITLAB_TOKEN`.
+- `internal/types/repository`: config model, validation, token naming, duration parsing, and renewal rules.
+- `internal/project`: GitLab project token gathering, creation, renewal, cleanup, and age checking.
+- `internal/group`: GitLab group token gathering, creation, renewal, cleanup, and age checking.
+- `internal/secrets`: secret-store integrations; supports `vault` (KVv2), `aws` (Secrets Manager), `k8s` (Kubernetes Secrets), `file` (local file), and `none`.
+- `internal/metrics/metrics.go`: Prometheus metrics (rotation counters, duration histograms, active tokens, rollback attempts/outcomes).
+- `internal/logger/logger.go`: structured logging with `go.uber.org/zap`.
+- `internal/helper/`: env var helpers, config parser, and secure file-path validation.
+- `internal/gitlabutil/pagination.go`: GitLab API pagination helpers.
+- `helm/token-tumbler/`: Helm chart for Kubernetes deployment.
+- `e2e/`: slow Testcontainers-backed tests for GitLab CE and Vault.
+- `docs/`: user-facing documentation (configuration, secret stores, monitoring, development, architecture).
 
 ## Validation Commands
 
@@ -28,9 +35,22 @@ Required env vars:
 - `GITLAB_URL`
 - `GITLAB_TOKEN`
 
-Required only when any config entry uses `secretStore: vault`:
+Optional env vars:
 
-- `APPROLE_ID`
-- `APPROLE_SECRET`
+- `TOKEN_TUMBLER_INTERVAL` — polling interval (default `5m`); uses Go duration syntax (`30s`, `5m`, `1h`).
+- `TOKEN_TUMBLER_METRICS_ADDR` — Prometheus metrics / healthz bind address (default `:9090`).
+
+Vault-specific env vars (required only when a config entry uses `secretStore: vault`):
+
+- `APPROLE_ID` and `APPROLE_SECRET` — for Vault AppRole auth (default).
+- `VAULT_TOKEN` — for Vault token auth (set `vaultAuthMethod: token`).
+- `VAULT_AUTH_ROLE` — for Vault Kubernetes or AWS IAM auth (set `vaultAuthMethod: kubernetes` or `aws`).
 
 Use `secretStore: none` explicitly for intentional no-persistence entries.
+
+## Endpoints
+
+The daemon starts an HTTP server (default `:9090`) with:
+
+- `GET /metrics` — Prometheus metrics endpoint.
+- `GET /healthz` — health probe returning `ok`.
