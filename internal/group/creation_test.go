@@ -57,7 +57,7 @@ func TestValidateGroupAccessTokenResponse(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func groupAccessTokenResponse(id int, tokenValue string) *gitlab.GroupAccessToken {
+func groupAccessTokenResponse(id int64, tokenValue string) *gitlab.GroupAccessToken {
 	token := &gitlab.GroupAccessToken{}
 	token.ID = id
 	token.Token = tokenValue

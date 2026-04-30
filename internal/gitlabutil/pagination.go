@@ -3,7 +3,7 @@ package gitlabutil
 import "gitlab.com/gitlab-org/api/client-go"
 
 type PageFunc[T any] func() ([]T, *gitlab.Response, error)
-type SetPageFunc func(page int)
+type SetPageFunc func(page int64)
 
 func CollectPages[T any](fetch PageFunc[T], setPage SetPageFunc) ([]T, error) {
 	var all []T

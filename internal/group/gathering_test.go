@@ -17,7 +17,7 @@ func TestGatherGroup(t *testing.T) {
 		name      string
 		response  string
 		status    int
-		wantID    int
+		wantID    int64
 		wantError error
 	}{
 		{name: "single group", status: http.StatusOK, response: `{"id":42,"name":"platform","full_path":"org/platform"}`, wantID: 42},
@@ -64,7 +64,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
-		assert.Equal(t, 1, got[0].ID)
+		assert.Equal(t, int64(1), got[0].ID)
 		assert.Equal(t, "tt-platform-old", got[0].Name)
 	})
 
@@ -90,7 +90,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
-		assert.Equal(t, []int{1, 2}, []int{got[0].ID, got[1].ID})
+		assert.Equal(t, []int64{1, 2}, []int64{got[0].ID, got[1].ID})
 	})
 
 	t.Run("propagates api error", func(t *testing.T) {
@@ -123,7 +123,7 @@ func TestGatherGroupTokenInfoByPrefix(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, got, 2)
-	assert.Equal(t, []int{1, 3}, []int{got[0].ID, got[1].ID})
+	assert.Equal(t, []int64{1, 3}, []int64{got[0].ID, got[1].ID})
 }
 
 func newGroupTestClient(t *testing.T, handler http.HandlerFunc) *gitlab.Client {

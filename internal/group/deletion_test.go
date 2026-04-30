@@ -204,7 +204,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing
 	assert.Empty(t, deleteCalls)
 }
 
-func groupAccessToken(id int, createdAt time.Time) *gitlab.GroupAccessToken {
+func groupAccessToken(id int64, createdAt time.Time) *gitlab.GroupAccessToken {
 	token := &gitlab.GroupAccessToken{}
 	token.ID = id
 	token.CreatedAt = &createdAt

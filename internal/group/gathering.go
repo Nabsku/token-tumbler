@@ -27,19 +27,19 @@ func GatherGroup(gitlabClient *gitlab.Client, entry *repository.Repository) (*gi
 	return group, nil
 }
 
-func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int) ([]*gitlab.GroupAccessToken, error) {
-	options := &gitlab.ListGroupAccessTokensOptions{PerPage: 100}
+func GatherGroupTokenInfo(gitlabClient *gitlab.Client, groupID int64) ([]*gitlab.GroupAccessToken, error) {
+	options := &gitlab.ListGroupAccessTokensOptions{ListOptions: gitlab.ListOptions{PerPage: 100}}
 	return gitlabutil.CollectPages(
 		func() ([]*gitlab.GroupAccessToken, *gitlab.Response, error) {
 			return gitlabClient.GroupAccessTokens.ListGroupAccessTokens(groupID, options)
 		},
-		func(page int) {
+		func(page int64) {
 			options.Page = page
 		},
 	)
 }
 
-func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
+func GatherGroupTokenInfoByPrefix(gitlabClient *gitlab.Client, groupID int64, prefix string, entry repository.Repository) ([]*gitlab.GroupAccessToken, error) {
 	groupTokens, err := GatherGroupTokenInfo(gitlabClient, groupID)
 	if err != nil {
 		return nil, err

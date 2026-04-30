@@ -17,7 +17,7 @@ func TestGatherProject(t *testing.T) {
 		name      string
 		response  string
 		status    int
-		wantID    int
+		wantID    int64
 		wantError error
 	}{
 		{name: "single project", status: http.StatusOK, response: `{"id":42,"name":"service","path_with_namespace":"org/service"}`, wantID: 42},
@@ -64,7 +64,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
-		assert.Equal(t, 1, got[0].ID)
+		assert.Equal(t, int64(1), got[0].ID)
 		assert.Equal(t, "tt-service-old", got[0].Name)
 	})
 
@@ -90,7 +90,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, got, 2)
-		assert.Equal(t, []int{1, 2}, []int{got[0].ID, got[1].ID})
+		assert.Equal(t, []int64{1, 2}, []int64{got[0].ID, got[1].ID})
 	})
 
 	t.Run("propagates api error", func(t *testing.T) {

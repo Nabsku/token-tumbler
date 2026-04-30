@@ -55,7 +55,7 @@ func TestCheckProjectTokenDeletion_ShouldNotDeleteTokenWithUnknownCreationDate(t
 	assert.False(t, shouldDelete)
 }
 
-func projectAccessToken(id int, createdAt time.Time) *gitlab.ProjectAccessToken {
+func projectAccessToken(id int64, createdAt time.Time) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.ID = id
 	token.CreatedAt = &createdAt
