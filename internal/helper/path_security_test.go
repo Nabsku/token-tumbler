@@ -78,7 +78,9 @@ func TestValidateSecureFilePath_ShouldRejectGroupWritableDirectory(t *testing.T)
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o770))
-	defer os.Chmod(insecureDir, 0o700) // restore for cleanup
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700)) // restore for cleanup
+	}()
 
 	err := ValidateSecureFilePath(filepath.Join(insecureDir, "token"))
 	require.Error(t, err)
@@ -94,7 +96,9 @@ func TestValidateSecureFilePath_ShouldRejectWorldWritableDirectory(t *testing.T)
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o703))
-	defer os.Chmod(insecureDir, 0o700) // restore for cleanup
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700)) // restore for cleanup
+	}()
 
 	err := ValidateSecureFilePath(filepath.Join(insecureDir, "token"))
 	require.Error(t, err)
@@ -110,7 +114,9 @@ func TestValidateSecureFilePath_ShouldRejectWorldWritableButNotGroupWritable(t *
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o707))
-	defer os.Chmod(insecureDir, 0o700) // restore for cleanup
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700)) // restore for cleanup
+	}()
 
 	err := ValidateSecureFilePath(filepath.Join(insecureDir, "token"))
 	require.Error(t, err)
@@ -165,7 +171,9 @@ func TestValidateSecureFilePath_ErrorFormatting(t *testing.T) {
 	insecureDir := filepath.Join(tmpDir, "insecure")
 	require.NoError(t, os.Mkdir(insecureDir, 0o700))
 	require.NoError(t, os.Chmod(insecureDir, 0o777))
-	defer os.Chmod(insecureDir, 0o700) // restore for cleanup
+	defer func() {
+		require.NoError(t, os.Chmod(insecureDir, 0o700)) // restore for cleanup
+	}()
 
 	err := ValidateSecureFilePath(filepath.Join(insecureDir, "token"))
 	require.Error(t, err)
