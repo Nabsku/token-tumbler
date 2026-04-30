@@ -81,4 +81,5 @@ jobs:
 
       - name: Push Helm chart to GHCR
         run: |
-          helm push token-tumbler-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          helm push token-tumbler-*.tgz "oci://ghcr.io/${OWNER}/charts"
