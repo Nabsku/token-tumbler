@@ -134,20 +134,22 @@ podDisruptionBudget:
 # -- Network Policy configuration.
 networkPolicy:
   enabled: true
-  # -- Egress rules. By default, allow HTTPS to anywhere (needed for GitLab, Vault, AWS APIs).
+  # -- Egress rules. By default, allow HTTPS/HTTP/DNS to anywhere (needed for GitLab, Vault, AWS APIs).
   egress:
-    - to:
-        - namespaceSelector: {}
-          podSelector: {}
+    - to: []
       ports:
         - protocol: TCP
           port: 443
-    - to:
-        - namespaceSelector: {}
-          podSelector: {}
+    - to: []
       ports:
         - protocol: TCP
           port: 80
+    - to: []
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
   # -- Ingress rules. By default, deny all ingress since this is a worker without exposed ports.
   ingress: []
 
