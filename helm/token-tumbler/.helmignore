@@ -19,7 +19,5 @@ Chart.lock
 README*
 LICENSE
 values-*.yaml
-!values.yaml
-!values.schema.json
 scripts/
 *.sh
