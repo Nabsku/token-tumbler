@@ -62,7 +62,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	}
 
 	expectedFreshExpiry := time.Now().Add(freshEntry.Lifetime.ToDuration()).Format(time.DateOnly)
-	createdToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, freshEntry, "tt-e2e")
+	createdToken, err := project.CreateNewProjectToken(ctx, gitlabClient, gitlabProjectID, freshEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, createdToken)
 	require.NotZero(t, createdToken.ID)
@@ -83,7 +83,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, allNeedRenewal)
 
-	projectTokens, err := project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
+	projectTokens, err := project.GatherProjectTokenInfo(ctx, gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
 	assert.Len(t, filterProjectTokensByEntry(t, projectTokens, freshEntry, "tt-e2e"), 1)
 
@@ -123,7 +123,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	}
 
 	expectedRotationExpiry := time.Now().Add(rotateEntry.Lifetime.ToDuration()).Format(time.DateOnly)
-	oldRotationToken, err := project.CreateNewProjectToken(gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
+	oldRotationToken, err := project.CreateNewProjectToken(ctx, gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, oldRotationToken)
 	require.NotZero(t, oldRotationToken.ID)
@@ -143,7 +143,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	assert.True(t, allNeedRenewal)
 
 	time.Sleep(2 * time.Second)
-	renewedRotationToken, err := project.RenewProjectAccessToken(gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
+	renewedRotationToken, err := project.RenewProjectAccessToken(ctx, gitlabClient, gitlabProjectID, rotateEntry, "tt-e2e")
 	require.NoError(t, err)
 	require.NotNil(t, renewedRotationToken)
 	require.NotZero(t, renewedRotationToken.ID)
@@ -153,14 +153,14 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 		_, _ = gitlabClient.ProjectAccessTokens.RevokeProjectAccessToken(gitlabProjectID, renewedRotationToken.ID)
 	})
 
-	projectTokens, err = project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
+	projectTokens, err = project.GatherProjectTokenInfo(ctx, gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
 	rotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tt-e2e")
 	require.Len(t, rotationTokens, 2)
 
-	require.NoError(t, project.DeleteProjectTokens(gitlabClient, rotateEntry, "tt-e2e"))
+	require.NoError(t, project.DeleteProjectTokens(ctx, gitlabClient, rotateEntry, "tt-e2e", 0))
 
-	projectTokens, err = project.GatherProjectTokenInfo(gitlabClient, gitlabProjectID)
+	projectTokens, err = project.GatherProjectTokenInfo(ctx, gitlabClient, gitlabProjectID)
 	require.NoError(t, err)
 	remainingRotationTokens := filterProjectTokensByEntry(t, projectTokens, rotateEntry, "tt-e2e")
 	activeRemainingRotationTokens := activeProjectTokens(remainingRotationTokens)
