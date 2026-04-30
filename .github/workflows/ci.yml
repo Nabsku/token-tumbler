@@ -2,10 +2,20 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore:
+      - 'helm/**'
+      - '.github/workflows/release.yml'
+      - 'docs/**'
+      - '*.md'
   push:
     branches:
       - main
       - master
+    paths-ignore:
+      - 'helm/**'
+      - '.github/workflows/release.yml'
+      - 'docs/**'
+      - '*.md'
 
 permissions:
   contents: read
