@@ -2,13 +2,14 @@
 
 Token Tumbler is a small Go daemon for safely rotating GitLab project and group access tokens. It creates replacement tokens before expiry, writes newly-created token values to a configured secret store, and only revokes older tokens after persistence succeeds.
 
-It currently supports GitLab project/group access tokens and Vault KVv2 persistence.
+It supports GitLab project/group access tokens and multiple secret stores: Vault KVv2 (with several auth methods), local file, or none.
 
 ## Why Token Tumbler?
 
 - **Automated rotation** for GitLab project and group access tokens
 - **Fail-closed secret handling** so token cleanup does not happen unless the new secret is safely stored
-- **Vault KVv2 support** with AppRole authentication and merge-friendly writes
+- **Vault KVv2 support** with AppRole, token, Kubernetes, or AWS IAM authentication and merge-friendly writes
+- **File secret store** with atomic writes and restrictive permissions
 - **Project and group targets** from one declarative YAML config
 - **Grace-period cleanup** to keep the newest token alive while retiring stale tokens
 - **Daemon mode** with a configurable polling interval and graceful shutdown
@@ -29,6 +30,7 @@ flowchart LR
 
     Daemon --> Secrets{Secret store}
     Secrets --> Vault[Vault KVv2]
+    Secrets --> File[file]
     Secrets --> None[none]
 
     Daemon --> Cleanup[Old-token cleanup]
@@ -92,7 +94,7 @@ Token Tumbler is deliberately conservative:
 
 - Go 1.25 or newer
 - A GitLab token with permission to list, create, and revoke project/group access tokens
-- Vault AppRole credentials when any entry uses `secretStore: vault`
+- Vault credentials appropriate for the chosen auth method when any entry uses `secretStore: vault`
 - A secure host filesystem path when any entry uses `secretStore: file`
 - Docker for the optional Testcontainers E2E suite
 
@@ -125,11 +127,24 @@ export GITLAB_TOKEN="glpat-..."
 # Optional; defaults to 5m. Uses Go duration syntax, for example 30s, 5m, 1h.
 export TOKEN_TUMBLER_INTERVAL="5m"
 
-# Only needed when at least one config entry uses secretStore: vault.
+# Vault AppRole (default auth method)
 export APPROLE_ID="..."
 export APPROLE_SECRET="..."
 
 go run .
+```
+
+Other Vault auth methods:
+
+```sh
+# Direct token auth
+export VAULT_TOKEN="hvs.XXXX"
+
+# Kubernetes auth (reads service account token automatically)
+export VAULT_K8S_TOKEN_PATH="/var/run/secrets/..."  # optional
+
+# AWS IAM auth (uses standard AWS credential chain)
+# No extra env vars needed; ensure AWS credentials are available
 ```
 
 ## Configuration
@@ -153,6 +168,8 @@ classDiagram
         string vaultMount
         string vaultPath
         string vaultKey
+        string vaultAuthMethod
+        string vaultAuthRole
         string filePath
     }
 
@@ -198,6 +215,40 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
 | `file` | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist. |
 | `none` | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere. |
+
+Vault auth examples:
+
+```yaml
+# AppRole (default)
+secretStore: vault
+vaultAuthMethod: approle
+vaultMount: kv
+vaultPath: teams/example/project
+vaultKey: gitlab_token
+
+# Direct token
+secretStore: vault
+vaultAuthMethod: token
+vaultMount: kv
+vaultPath: teams/example/project
+vaultKey: gitlab_token
+
+# Kubernetes
+secretStore: vault
+vaultAuthMethod: kubernetes
+vaultAuthRole: my-k8s-role
+vaultMount: kv
+vaultPath: teams/example/project
+vaultKey: gitlab_token
+
+# AWS IAM
+secretStore: vault
+vaultAuthMethod: aws
+vaultAuthRole: my-aws-role
+vaultMount: kv
+vaultPath: teams/example/project
+vaultKey: gitlab_token
+```
 
 File secret-store example:
 
