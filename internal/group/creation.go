@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
+	"go.uber.org/zap"
 )
 
 var ErrInvalidGroupTokenResponse = errors.New("invalid group access token response")

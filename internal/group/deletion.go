@@ -9,8 +9,8 @@ import (
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"time"
 
-	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
+	"go.uber.org/zap"
 )
 
 func DeleteGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, repo *repository.Repository, prefix string, vaultTokenID int64) error {
