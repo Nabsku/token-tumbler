@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
+	"go.uber.org/zap"
 )
 
 var (

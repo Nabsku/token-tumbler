@@ -384,15 +384,15 @@ func uniqueStrings(values []string) []string {
 }
 
 type mockSecretStore struct {
-	readValue       string
-	readErr         error
-	writeCalls      []string
-	writeErr        error
-	writeErrOnCall  int // 0 = all calls, N = only on Nth call (1-based)
-	writeCallCount  int
-	writeMetaErr    error
-	readMetaValue   secrets.TokenMetadata
-	readMetaErr     error
+	readValue      string
+	readErr        error
+	writeCalls     []string
+	writeErr       error
+	writeErrOnCall int // 0 = all calls, N = only on Nth call (1-based)
+	writeCallCount int
+	writeMetaErr   error
+	readMetaValue  secrets.TokenMetadata
+	readMetaErr    error
 }
 
 func (m *mockSecretStore) Read(_ context.Context) (string, error) {
