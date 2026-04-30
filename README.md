@@ -2,16 +2,17 @@
 
 Token Tumbler is a small Go daemon for safely rotating GitLab project and group access tokens. It creates replacement tokens before expiry, writes newly-created token values to a configured secret store, and only revokes older tokens after persistence succeeds.
 
-It supports GitLab project/group access tokens and multiple secret stores: Vault KVv2 (with several auth methods), local file, or none.
+It supports GitLab project/group access tokens and multiple secret stores: Vault KVv2 (with several auth methods), AWS Secrets Manager, Kubernetes Secrets, local file, or none.
 
 ## Why Token Tumbler?
 
 - **Automated rotation** for GitLab project and group access tokens
 - **Fail-closed secret handling** so token cleanup does not happen unless the new secret is safely stored
-- **Vault KVv2 support** with AppRole, token, Kubernetes, or AWS IAM authentication and merge-friendly writes
-- **File secret store** with atomic writes and restrictive permissions
+- **Multiple secret stores** — Vault KVv2 (AppRole, token, Kubernetes, AWS IAM), AWS Secrets Manager, Kubernetes Secrets, local file, or none
+- **Merge-friendly writes** — existing secret data is preserved when updating Vault or Kubernetes secrets
 - **Project and group targets** from one declarative YAML config
 - **Grace-period cleanup** to keep the newest token alive while retiring stale tokens
+- **Prometheus metrics** with token rotation counters, duration histograms, and a /healthz endpoint
 - **Daemon mode** with a configurable polling interval and graceful shutdown
 - **E2E coverage** with Testcontainers-backed GitLab and Vault
 
@@ -30,8 +31,14 @@ flowchart LR
 
     Daemon --> Secrets{Secret store}
     Secrets --> Vault[Vault KVv2]
+    Secrets --> AWS[AWS Secrets Manager]
+    Secrets --> K8s[Kubernetes Secrets]
     Secrets --> File[file]
     Secrets --> None[none]
+
+    Daemon --> Metrics[Prometheus metrics]
+    Metrics --> Health[/healthz]
+    Metrics --> MetricsEndpoint[/metrics]
 
     Daemon --> Cleanup[Old-token cleanup]
     Cleanup --> GitLab
@@ -91,7 +98,8 @@ export VAULT_K8S_TOKEN_PATH="/var/run/secrets/..."  # optional
 ## Documentation
 
 - **[Configuration](docs/configuration.md)** - Full configuration reference with all fields, validation rules, and examples
-- **[Secret Stores](docs/secret-stores.md)** - Detailed docs for Vault (all auth methods), file store, and `none`
+- **[Secret Stores](docs/secret-stores.md)** - Detailed docs for Vault, AWS, Kubernetes, file store, and `none`
+- **[Monitoring](docs/monitoring.md)** - Prometheus metrics, PromQL queries, and alerting examples
 - **[Development](docs/development.md)** - Running tests, E2E suite, Makefile targets, and contributing guidelines
 
 ## Token naming

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
@@ -37,12 +38,12 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	}
 
 	unit := str[len(str)-1]
-	l.Debug(fmt.Sprintf("Unit: %c", unit))
+	l.Debug("parsed duration unit", zap.String("unit", string(unit)))
 	value, err := strconv.Atoi(str[:len(str)-1])
-	l.Debug(fmt.Sprintf("Value: %d", value))
+	l.Debug("parsed duration value", zap.Int("value", value))
 
 	if errors.Is(err, strconv.ErrSyntax) {
-		l.Debug(fmt.Sprintf("Invalid token value: %s", str))
+		l.Debug("invalid duration value", zap.String("input", str))
 		return ErrMissingDuration
 	} else if err != nil {
 		return err

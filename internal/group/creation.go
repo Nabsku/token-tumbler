@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
@@ -20,7 +21,7 @@ func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int64, entry *repo
 	if err != nil {
 		return nil, err
 	}
-	l.Debug(fmt.Sprintf("ExpiryDate: %v", expiryDate))
+	l.Debug("computed token expiry", zap.Time("expiry", *expiryDate))
 
 	tokenName, err := entry.NewTokenName(prefix)
 	if err != nil {

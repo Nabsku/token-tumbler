@@ -147,7 +147,7 @@ func matchingTokens[T any](tokens []T, entry *repository.Repository, prefix stri
 		}
 		if ok, err := entry.ParseTokenName(prefix, current.name); ok {
 			if logMatches {
-				l.Info(fmt.Sprintf("Token %v is valid, appending to queue of tokens to check further", current.name))
+				l.Info("token matches prefix, appending to check queue", zap.String("token_name", current.name))
 			}
 			matches = append(matches, token)
 		} else if err != nil {
@@ -196,7 +196,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	}
 
 	if len(tokenQueue) < 1 {
-		l.Info(fmt.Sprintf("No token in group %v yet, we're free to create one as we please.", *entry.GroupName))
+		l.Info("no tokens found in group, creating new token", zap.String("group", *entry.GroupName))
 		token, errTokenCreation := group.CreateNewGroupToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errTokenCreation != nil {
 			metrics.TokenRotations.WithLabelValues("group", entry.Name, store, "error").Inc()
@@ -212,7 +212,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	}
 
 	if needsRenewal {
-		l.Info(fmt.Sprintf("Token for %v in Group %v is ready to be renewed.\n", entry.Name, *entry.GroupName))
+		l.Info("token ready for renewal", zap.String("token_name", entry.Name), zap.String("group", *entry.GroupName))
 		token, errRenewal := group.RenewGroupAccessToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errRenewal != nil {
 			metrics.TokenRotations.WithLabelValues("group", entry.Name, store, "error").Inc()
@@ -220,7 +220,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		}
 		groupToken = token
 	} else {
-		l.Info(fmt.Sprintf("No tokens for %v in Group %v need renewal at this time.\n", entry.Name, *entry.GroupName))
+		l.Info("no tokens need renewal", zap.String("token_name", entry.Name), zap.String("group", *entry.GroupName))
 	}
 
 	if groupToken == nil {
@@ -271,7 +271,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	}
 
 	if len(tokenQueue) < 1 {
-		l.Info(fmt.Sprintf("No token yet for repo %v, we're free to create one as we please.", *entry.RepoName))
+		l.Info("no tokens found in repo, creating new token", zap.String("repo", *entry.RepoName))
 
 		token, errTokenCreation := project.CreateNewProjectToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errTokenCreation != nil {
@@ -288,7 +288,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	}
 
 	if needsRenewal {
-		l.Info(fmt.Sprintf("Token for %v in Repo %v is ready to be renewed.\n", entry.Name, *entry.RepoName))
+		l.Info("token ready for renewal", zap.String("token_name", entry.Name), zap.String("repo", *entry.RepoName))
 		token, errRenewal := project.RenewProjectAccessToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
 		if errRenewal != nil {
 			metrics.TokenRotations.WithLabelValues("project", entry.Name, store, "error").Inc()
@@ -296,7 +296,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		}
 		projectToken = token
 	} else {
-		l.Info(fmt.Sprintf("No tokens for %v in Repo %v need renewal at this time.\n", entry.Name, *entry.RepoName))
+		l.Info("no tokens need renewal", zap.String("token_name", entry.Name), zap.String("repo", *entry.RepoName))
 	}
 
 	if projectToken == nil {
