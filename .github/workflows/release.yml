@@ -24,7 +24,9 @@ jobs:
           go-version: '1.26'
 
       - name: Install syft
-        uses: anchore/sbom-action/download-syft@v0
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          syft-version: v1.43.0
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
