@@ -152,6 +152,15 @@ networkPolicy:
           port: 53
   # -- Ingress rules. By default, deny all ingress since this is a worker without exposed ports.
   ingress: []
+  # -- Metrics ingress source selectors. Only applied when both networkPolicy.enabled
+  # and metrics.enabled are true. When empty, no ingress rule is created for the metrics
+  # port (metrics traffic is denied by default).
+  # Example:
+  #   metricsFrom:
+  #     - namespaceSelector:
+  #         matchLabels:
+  #           name: monitoring
+  metricsFrom: []
 
 # -- Extra volumes to mount into the pod.
 volumes: []
