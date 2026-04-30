@@ -162,6 +162,33 @@ func TestConfig_Validate(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("accepts valid file secret store config", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		filePath := "/run/secrets/gitlab-token"
+		repo.SecretStore = "file"
+		repo.FilePath = &filePath
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects file secret store without file path", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "file"
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "filePath is required")
+	})
+
 	t.Run("rejects non-positive lifetime", func(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.Lifetime = Duration{Duration: -1 * time.Hour}

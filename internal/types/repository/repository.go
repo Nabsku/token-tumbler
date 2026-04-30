@@ -89,6 +89,7 @@ type (
 		VaultPath         *string   `yaml:"vaultPath,omitempty"`
 		VaultKey          *string   `yaml:"vaultKey,omitempty"`
 		Mount             *string   `yaml:"vaultMount,omitempty"`
+		FilePath          *string   `yaml:"filePath,omitempty"`
 	}
 )
 
@@ -216,6 +217,11 @@ func (r *Repository) validateSecretStore() error {
 		}
 		if r.Mount == nil || strings.TrimSpace(*r.Mount) == "" {
 			return fmt.Errorf("%w: vaultMount is required for vault secret store", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	case "file":
+		if r.FilePath == nil || strings.TrimSpace(*r.FilePath) == "" {
+			return fmt.Errorf("%w: filePath is required for file secret store", ErrInvalidRepositoryConfig)
 		}
 		return nil
 	default:

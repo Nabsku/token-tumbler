@@ -96,7 +96,7 @@ func checkEnvVars(vars ...string) error {
 	return nil
 }
 
-func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore) error {
+func writeSecret(ctx context.Context, entry *repository.Repository, secret secrets.SecretStore, token string) error {
 	if secret == nil {
 		return nil
 	}
@@ -107,7 +107,7 @@ func writeSecret(ctx context.Context, entry *repository.Repository, secret secre
 		zap.String("secret_store", entry.SecretStore),
 		zap.String("token_name", entry.Name),
 	)
-	if err := secret.Write(ctx); err != nil {
+	if err := secret.Write(ctx, token); err != nil {
 		return fmt.Errorf("writing secret to %s: %w", entry.SecretStore, err)
 	}
 	return nil
@@ -202,11 +202,11 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		return nil
 	}
 
-	secret, err := secrets.ForRepository(entry, groupToken.Token)
+	secret, err := secrets.ForRepository(entry)
 	if err != nil {
 		return err
 	}
-	return writeSecret(ctx, entry, secret)
+	return writeSecret(ctx, entry, secret, groupToken.Token)
 }
 
 func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entry *repository.Repository, index int, yamlConfig *repository.Config) error {
@@ -260,11 +260,11 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		return nil
 	}
 
-	secret, err := secrets.ForRepository(entry, projectToken.Token)
+	secret, err := secrets.ForRepository(entry)
 	if err != nil {
 		return err
 	}
-	return writeSecret(ctx, entry, secret)
+	return writeSecret(ctx, entry, secret, projectToken.Token)
 }
 
 type Runner struct {
