@@ -417,6 +417,15 @@ func TestConfig_UsesVaultAppRole(t *testing.T) {
 	assert.True(t, (&Config{Repos: []Repository{{SecretStore: "vault", VaultAuthMethod: gitlab.Ptr("")}}}).UsesVaultAppRole())
 }
 
+func TestConfig_UsesVaultToken(t *testing.T) {
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "none"}}}).UsesVaultToken())
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "vault"}}}).UsesVaultToken())
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "vault", VaultAuthMethod: gitlab.Ptr("approle")}}}).UsesVaultToken())
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "vault", VaultAuthMethod: gitlab.Ptr("kubernetes")}}}).UsesVaultToken())
+	assert.False(t, (&Config{Repos: []Repository{{SecretStore: "vault", VaultAuthMethod: gitlab.Ptr("aws")}}}).UsesVaultToken())
+	assert.True(t, (&Config{Repos: []Repository{{SecretStore: "vault", VaultAuthMethod: gitlab.Ptr("token")}}}).UsesVaultToken())
+}
+
 func TestRepository_ParseTokenName(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -160,24 +160,68 @@ volumes: []
 volumeMounts: []
 
 # -- Startup probe configuration.
-# Disabled by default because the distroless image does not include a shell
-# and the application does not expose a lightweight health endpoint.
-# Enable only if you build a custom image with a --version or health command.
+# When metrics are enabled, probes default to HTTP /healthz on the metrics port.
+# Set useExec: true to force exec probes (e.g. for custom images).
 startupProbe:
   enabled: false
+  useExec: false
   initialDelaySeconds: 5
   periodSeconds: 10
   failureThreshold: 3
 
 # -- Liveness probe configuration.
-# Disabled by default because the distroless image does not include a shell
-# and the application does not expose a lightweight health endpoint.
-# Enable only if you build a custom image with a --version or health command.
+# When metrics are enabled, probes default to HTTP /healthz on the metrics port.
+# Set useExec: true to force exec probes (e.g. for custom images).
 livenessProbe:
   enabled: false
+  useExec: false
   initialDelaySeconds: 30
   periodSeconds: 60
   failureThreshold: 3
+
+# -- Metrics configuration.
+# The application exposes a Prometheus-compatible /metrics endpoint on :9090
+# and a /healthz endpoint for health checks.
+metrics:
+  # -- Enable the metrics HTTP server inside the application.
+  enabled: true
+  # -- Port for the metrics HTTP server.
+  port: 9090
+  # -- Pod annotations for Prometheus scraping (when not using ServiceMonitor).
+  podAnnotations: {}
+    # prometheus.io/scrape: "true"
+    # prometheus.io/port: "9090"
+    # prometheus.io/path: "/metrics"
+
+  # -- Metrics Service configuration.
+  service:
+    # -- Create a Service resource for the metrics endpoint.
+    enabled: true
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 9090
+    # -- Service target port (container port).
+    targetPort: 9090
+    # -- Additional annotations for the metrics Service.
+    annotations: {}
+
+  # -- ServiceMonitor configuration for the Prometheus Operator.
+  serviceMonitor:
+    # -- Create a ServiceMonitor resource.
+    enabled: false
+    # -- Namespace for the ServiceMonitor (defaults to release namespace).
+    namespace: ""
+    # -- Additional labels for the ServiceMonitor (e.g. release: prometheus).
+    additionalLabels: {}
+    # -- Scrape interval.
+    interval: 30s
+    # -- Scrape timeout.
+    scrapeTimeout: ""
+    # -- Metric relabeling configuration.
+    metricRelabelings: []
+    # -- Relabeling configuration.
+    relabelings: []
 
 # -- Extra environment variables.
 extraEnv: []

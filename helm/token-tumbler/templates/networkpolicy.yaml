@@ -15,6 +15,12 @@ spec:
     - Egress
     {{- end }}
   ingress:
+    {{- if .Values.metrics.enabled }}
+    - from: []
+      ports:
+        - protocol: TCP
+          port: {{ .Values.metrics.port }}
+    {{- end }}
     {{- toYaml .Values.networkPolicy.ingress | nindent 4 }}
   {{- if .Values.networkPolicy.egress }}
   egress:

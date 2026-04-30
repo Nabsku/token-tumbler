@@ -185,6 +185,16 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	tokenQueue := matchingGroupTokens(tokenInfo, entry, yamlConfig.Prefix, index)
 	metrics.ActiveTokens.WithLabelValues("group", entry.Name).Set(float64(len(tokenQueue)))
 
+	secret, err := secrets.ForRepository(entry)
+	if err != nil {
+		return err
+	}
+	if secret != nil {
+		if err := secret.InitClient(ctx); err != nil {
+			return fmt.Errorf("initializing secret store for %s: %w", entry.Name, err)
+		}
+	}
+
 	if len(tokenQueue) < 1 {
 		l.Info(fmt.Sprintf("No token in group %v yet, we're free to create one as we please.", *entry.GroupName))
 		token, errTokenCreation := group.CreateNewGroupToken(gitlabClient, info.ID, entry, yamlConfig.Prefix)
@@ -220,10 +230,6 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 	metrics.TokenRotations.WithLabelValues("group", entry.Name, store, "success").Inc()
 	metrics.TokenRotationDuration.WithLabelValues("group", entry.Name).Observe(time.Since(start).Seconds())
 
-	secret, err := secrets.ForRepository(entry)
-	if err != nil {
-		return err
-	}
 	return writeSecret(ctx, entry, secret, groupToken.Token)
 }
 
@@ -253,6 +259,16 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 
 	tokenQueue := matchingProjectTokens(tokenInfo, entry, yamlConfig.Prefix, index)
 	metrics.ActiveTokens.WithLabelValues("project", entry.Name).Set(float64(len(tokenQueue)))
+
+	secret, err := secrets.ForRepository(entry)
+	if err != nil {
+		return err
+	}
+	if secret != nil {
+		if err := secret.InitClient(ctx); err != nil {
+			return fmt.Errorf("initializing secret store for %s: %w", entry.Name, err)
+		}
+	}
 
 	if len(tokenQueue) < 1 {
 		l.Info(fmt.Sprintf("No token yet for repo %v, we're free to create one as we please.", *entry.RepoName))
@@ -290,10 +306,6 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 	metrics.TokenRotations.WithLabelValues("project", entry.Name, store, "success").Inc()
 	metrics.TokenRotationDuration.WithLabelValues("project", entry.Name).Observe(time.Since(start).Seconds())
 
-	secret, err := secrets.ForRepository(entry)
-	if err != nil {
-		return err
-	}
 	return writeSecret(ctx, entry, secret, projectToken.Token)
 }
 
@@ -530,6 +542,11 @@ func main() {
 	}
 	if yamlConfig.UsesVaultAppRole() {
 		if err := checkEnvVars("APPROLE_ID", "APPROLE_SECRET"); err != nil {
+			l.Fatal("the following error occurred:", zap.Error(err))
+		}
+	}
+	if yamlConfig.UsesVaultToken() {
+		if err := checkEnvVars("VAULT_TOKEN"); err != nil {
 			l.Fatal("the following error occurred:", zap.Error(err))
 		}
 	}
