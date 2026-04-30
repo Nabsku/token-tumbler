@@ -263,6 +263,10 @@ func (r *Repository) validateSecretStore() error {
 		if r.FilePath == nil || strings.TrimSpace(*r.FilePath) == "" {
 			return fmt.Errorf("%w: filePath is required for file secret store", ErrInvalidRepositoryConfig)
 		}
+		filePath := strings.TrimSpace(*r.FilePath)
+		if err := helper.ValidateSecureFilePath(filePath); err != nil {
+			return fmt.Errorf("%w: invalid file secret path: %v", ErrInvalidRepositoryConfig, err)
+		}
 		return nil
 	case "aws":
 		if r.AWSSecretName == nil || strings.TrimSpace(*r.AWSSecretName) == "" {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/nabsku/token-tumbler/internal/types/repository"
@@ -90,4 +91,102 @@ func TestFileSecret_Read_ShouldReturnFileContents(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "stored-token", got)
+}
+
+func TestForRepository_ShouldRejectRelativeFilePath(t *testing.T) {
+	filePath := "relative/path/to/token"
+	entry := &repository.Repository{SecretStore: "file", FilePath: &filePath}
+
+	store, err := ForRepository(entry)
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, repository.ErrInvalidRepositoryConfig))
+	assert.Contains(t, err.Error(), "absolute")
+	assert.Nil(t, store)
+}
+
+func TestForRepository_ShouldRejectSymlinkFilePath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink tests not supported on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	realDir := filepath.Join(tmpDir, "real")
+	require.NoError(t, os.Mkdir(realDir, 0o700))
+
+	symlinkDir := filepath.Join(tmpDir, "link")
+	require.NoError(t, os.Symlink(realDir, symlinkDir))
+
+	filePath := filepath.Join(symlinkDir, "token")
+	entry := &repository.Repository{SecretStore: "file", FilePath: &filePath}
+
+	store, err := ForRepository(entry)
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, repository.ErrInvalidRepositoryConfig))
+	assert.Contains(t, err.Error(), "symlink")
+	assert.Nil(t, store)
+}
+
+func TestFileSecret_Write_ShouldRejectWorldWritableParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission tests not supported on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	insecureDir := filepath.Join(tmpDir, "insecure")
+	require.NoError(t, os.Mkdir(insecureDir, 0o700))
+	require.NoError(t, os.Chmod(insecureDir, 0o707))
+	defer os.Chmod(insecureDir, 0o700)
+
+	path := filepath.Join(insecureDir, "gitlab-token")
+	secret := &FileSecret{Path: path}
+
+	err := secret.Write(context.Background(), "new-token")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "world-writable")
+	assert.NoFileExists(t, path)
+}
+
+func TestFileSecret_Write_ShouldRejectGroupWritableParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission tests not supported on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	insecureDir := filepath.Join(tmpDir, "insecure")
+	require.NoError(t, os.Mkdir(insecureDir, 0o700))
+	require.NoError(t, os.Chmod(insecureDir, 0o770))
+	defer os.Chmod(insecureDir, 0o700)
+
+	path := filepath.Join(insecureDir, "gitlab-token")
+	secret := &FileSecret{Path: path}
+
+	err := secret.Write(context.Background(), "new-token")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "group-writable")
+	assert.NoFileExists(t, path)
+}
+
+func TestFileSecret_Write_ShouldRejectSymlinkParent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink tests not supported on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	realDir := filepath.Join(tmpDir, "real")
+	require.NoError(t, os.Mkdir(realDir, 0o700))
+
+	symlinkDir := filepath.Join(tmpDir, "link")
+	require.NoError(t, os.Symlink(realDir, symlinkDir))
+
+	path := filepath.Join(symlinkDir, "gitlab-token")
+	secret := &FileSecret{Path: path}
+
+	err := secret.Write(context.Background(), "new-token")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
 }

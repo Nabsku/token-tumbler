@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/nabsku/token-tumbler/internal/helper"
 )
 
 const fileSecretMode = 0o600
@@ -37,8 +39,12 @@ func (fs *FileSecret) Write(_ context.Context, value string) error {
 		return fmt.Errorf("filePath must not be blank")
 	}
 
+	if err := helper.ValidateSecureFilePath(path); err != nil {
+		return fmt.Errorf("file secret path validation failed: %w", err)
+	}
+
 	dir := filepath.Dir(path)
-	info, err := os.Stat(dir)
+	info, err := os.Lstat(dir)
 	if err != nil {
 		return fmt.Errorf("checking file secret parent directory %s: %w", dir, err)
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nabsku/token-tumbler/internal/helper"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 )
 
@@ -50,6 +51,9 @@ func ForRepository(entry *repository.Repository) (SecretStore, error) {
 		filePath := strings.TrimSpace(*entry.FilePath)
 		if filePath == "" {
 			return nil, fmt.Errorf("%w: filePath must not be blank", repository.ErrInvalidRepositoryConfig)
+		}
+		if err := helper.ValidateSecureFilePath(filePath); err != nil {
+			return nil, fmt.Errorf("%w: invalid file secret path: %v", repository.ErrInvalidRepositoryConfig, err)
 		}
 		return &FileSecret{Path: filePath}, nil
 	case "aws":
