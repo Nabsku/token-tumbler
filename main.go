@@ -528,7 +528,7 @@ func main() {
 	if err != nil {
 		l.Fatal("reading the yamlConfig failed", zap.Error(err))
 	}
-	if yamlConfig.UsesVault() {
+	if yamlConfig.UsesVaultAppRole() {
 		if err := checkEnvVars("APPROLE_ID", "APPROLE_SECRET"); err != nil {
 			l.Fatal("the following error occurred:", zap.Error(err))
 		}

@@ -153,6 +153,22 @@ func (c *Config) UsesVault() bool {
 	return false
 }
 
+func (c *Config) UsesVaultAppRole() bool {
+	for _, repo := range c.Repos {
+		if !strings.EqualFold(strings.TrimSpace(repo.SecretStore), "vault") {
+			continue
+		}
+		authMethod := "approle"
+		if repo.VaultAuthMethod != nil && strings.TrimSpace(*repo.VaultAuthMethod) != "" {
+			authMethod = strings.ToLower(strings.TrimSpace(*repo.VaultAuthMethod))
+		}
+		if authMethod == "approle" {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *Repository) Validate() error {
 	if strings.TrimSpace(r.Name) == "" {
 		return fmt.Errorf("%w: name is required", ErrInvalidRepositoryConfig)
