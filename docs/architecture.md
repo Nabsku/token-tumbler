@@ -52,3 +52,12 @@ Token Tumbler is deliberately conservative:
 - The newest matching token is never revoked.
 - Tokens with missing creation timestamps are never selected as the newest cleanup candidate.
 - Duplicate config entries for the same prefix, target type, target, and token name are rejected.
+
+## Observability
+
+Token Tumbler exposes Prometheus metrics on a configurable HTTP endpoint (default `:9090`):
+
+- `/metrics` — Prometheus metrics including token rotation counters, duration histograms, and secret store operation counters
+- `/healthz` — Health check endpoint
+
+See [monitoring.md](monitoring.md) for metric names, PromQL queries, and alerting examples.

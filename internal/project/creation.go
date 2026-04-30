@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
@@ -16,7 +17,7 @@ var ErrInvalidProjectTokenResponse = errors.New("invalid project access token re
 func CreateNewProjectToken(gitlabClient *gitlab.Client, projectID int64, entry *repository.Repository, prefix string) (*gitlab.ProjectAccessToken, error) {
 	l := logger.GetLogger()
 
-	l.Debug(fmt.Sprintf("Creating new project token for %s", *entry.RepoName))
+	l.Debug("creating new project token", zap.String("repo", *entry.RepoName))
 	expiryDate, err := entry.GetExpiryDate()
 	if err != nil {
 		return nil, err

@@ -7,13 +7,14 @@ import (
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"time"
 
+	"go.uber.org/zap"
 	"gitlab.com/gitlab-org/api/client-go"
 )
 
 func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repository, prefix string) error {
 	l := logger.GetLogger()
 
-	l.Info(fmt.Sprintf("Checking for old tokens in repo %s", *repo.RepoName))
+	l.Info("checking for old tokens", zap.String("repo", *repo.RepoName))
 
 	project, err := GatherProject(gitlabClient, repo)
 	if err != nil {
@@ -43,14 +44,14 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 	}
 
 	if len(prefixedTokens) <= 1 {
-		l.Debug(fmt.Sprintf("Found 1 token for %s, not revoking", *repo.RepoName))
+		l.Debug("only one token found, not revoking", zap.String("repo", *repo.RepoName))
 		return nil
 	}
 
 	var newestToken *gitlab.ProjectAccessToken
 	for _, token := range prefixedTokens {
 		if token.CreatedAt == nil {
-			l.Debug(fmt.Sprintf("Token %s has no creation date, skipping as newest candidate", token.Name))
+			l.Debug("token has no creation date, skipping as newest candidate", zap.String("token_name", token.Name))
 			continue
 		}
 		if newestToken == nil || token.CreatedAt.After(*newestToken.CreatedAt) {
@@ -58,23 +59,23 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 		}
 	}
 	if newestToken == nil {
-		l.Debug(fmt.Sprintf("No dated token found for %s, not revoking", *repo.RepoName))
+		l.Debug("no dated token found, not revoking", zap.String("repo", *repo.RepoName))
 		return nil
 	}
 
 	var revokeErr error
 	for _, token := range prefixedTokens {
-		l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
+		l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 		shouldDelete := checkProjectTokenDeletion(repo, token, newestToken)
 
 		if shouldDelete {
-			l.Debug(fmt.Sprintf("Deleting token %s from repo %s", token.Name, *repo.RepoName))
+			l.Debug("deleting token", zap.String("token_name", token.Name), zap.String("repo", *repo.RepoName))
 			_, err := gitlabClient.ProjectAccessTokens.RevokeProjectAccessToken(project.ID, token.ID)
 			if err != nil {
 				l.Error(fmt.Errorf("error deleting token %s: %v", token.Name, err).Error())
 				revokeErr = errors.Join(revokeErr, fmt.Errorf("deleting token %s from project %s: %w", token.Name, *repo.RepoName, err))
 			} else {
-				l.Info(fmt.Sprintf("Deleted token %s from repo %s", token.Name, *repo.RepoName))
+				l.Info("deleted token", zap.String("token_name", token.Name), zap.String("repo", *repo.RepoName))
 			}
 		}
 	}
@@ -84,20 +85,20 @@ func DeleteProjectTokens(gitlabClient *gitlab.Client, repo *repository.Repositor
 func checkProjectTokenDeletion(entry *repository.Repository, token *gitlab.ProjectAccessToken, newestToken *gitlab.ProjectAccessToken) bool {
 	l := logger.GetLogger()
 
-	l.Debug(fmt.Sprintf("Checking token %s (id %d) for deletion", token.Name, token.ID))
-	l.Debug(fmt.Sprintf("Token %s (id %d) created at: %s", token.Name, token.ID, token.CreatedAt))
+	l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 	if token.CreatedAt == nil || newestToken == nil || newestToken.CreatedAt == nil || entry.GracePeriod == nil {
-		l.Debug("Missing token creation date or grace period, not deleting")
+		l.Debug("missing token creation date or grace period, not deleting")
 		return false
 	}
-	l.Debug(fmt.Sprintf("Newest Token is: %v", newestToken.CreatedAt))
+	l.Debug("token creation date", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID), zap.Time("created_at", *token.CreatedAt))
+	l.Debug("newest token date", zap.Time("created_at", *newestToken.CreatedAt))
 
 	if token.ID == newestToken.ID {
 		l.Debug("Token is the newest, not deleting")
 		return false
 	}
 
-	l.Debug(fmt.Sprintf("Checking if token %s (id %d) is older than grace period", token.Name, token.ID))
+	l.Debug("checking if token is older than grace period", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 
 	if time.Now().After(newestToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
 		return true
