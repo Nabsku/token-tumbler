@@ -198,7 +198,7 @@ func activeProjectTokens(tokens []*gitlab.ProjectAccessToken) []*gitlab.ProjectA
 	return active
 }
 
-func assertProjectTokenRevoked(t *testing.T, tokens []*gitlab.ProjectAccessToken, id int) {
+func assertProjectTokenRevoked(t *testing.T, tokens []*gitlab.ProjectAccessToken, id int64) {
 	t.Helper()
 
 	for _, token := range tokens {
