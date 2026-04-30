@@ -270,7 +270,7 @@ func enableVaultMount(t *testing.T, ctx context.Context, client *vaultapi.Client
 	}
 }
 
-func startGitLabContainerAndCreateProject(t *testing.T, ctx context.Context, runID string) (*gitlab.Client, int, string) {
+func startGitLabContainerAndCreateProject(t *testing.T, ctx context.Context, runID string) (*gitlab.Client, int64, string) {
 	t.Helper()
 	rootToken := "tokenchaserrootpat123456"
 	rootPassword := "Zx9$Qv2!Lm7#Rp4%Tn8@Ys6"

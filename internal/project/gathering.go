@@ -27,7 +27,7 @@ func GatherProject(gitlabClient *gitlab.Client, entry *repository.Repository) (*
 	return project, nil
 }
 
-func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int) ([]*gitlab.ProjectAccessToken, error) {
+func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int64) ([]*gitlab.ProjectAccessToken, error) {
 	options := &gitlab.ListProjectAccessTokensOptions{
 		ListOptions: gitlab.ListOptions{PerPage: 100},
 	}
@@ -35,7 +35,7 @@ func GatherProjectTokenInfo(gitlabClient *gitlab.Client, projectID int) ([]*gitl
 		func() ([]*gitlab.ProjectAccessToken, *gitlab.Response, error) {
 			return gitlabClient.ProjectAccessTokens.ListProjectAccessTokens(projectID, options)
 		},
-		func(page int) {
+		func(page int64) {
 			options.Page = page
 		},
 	)

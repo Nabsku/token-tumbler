@@ -57,7 +57,7 @@ func TestValidateProjectAccessTokenResponse(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func projectAccessTokenResponse(id int, tokenValue string) *gitlab.ProjectAccessToken {
+func projectAccessTokenResponse(id int64, tokenValue string) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.ID = id
 	token.Token = tokenValue
