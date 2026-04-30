@@ -3,6 +3,9 @@ package secrets
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	vault "github.com/hashicorp/vault/api"
@@ -155,4 +158,120 @@ func TestVaultSecret_InitClient_ShouldDefaultToAppRole(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "APPROLE_ID is required")
+}
+
+func TestIsCASConflict_ShouldRecognizeBadRequest(t *testing.T) {
+	assert.True(t, isCASConflict(&vault.ResponseError{StatusCode: 400}))
+	assert.False(t, isCASConflict(&vault.ResponseError{StatusCode: 404}))
+	assert.False(t, isCASConflict(&vault.ResponseError{StatusCode: 500}))
+	assert.False(t, isCASConflict(errors.New("some error")))
+}
+
+func TestVaultSecret_Write_ShouldRetryOnCASConflict(t *testing.T) {
+	callCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"old-token"},"metadata":{"version":1}}}`))
+		case http.MethodPut:
+			callCount++
+			body, _ := io.ReadAll(r.Body)
+			if callCount == 1 {
+				assert.Contains(t, string(body), `"options":{"cas":1}`)
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errors":["check-and-set parameter did not match the current version"]}`))
+				return
+			}
+			assert.Contains(t, string(body), `"options":{"cas":1}`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":2}}}`))
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+}
+
+func TestVaultSecret_Write_ShouldReturnErrorOnNonCASFailure(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"old-token"},"metadata":{"version":1}}}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"errors":["internal server error"]}`))
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "writing vault secret")
+}
+
+func TestVaultSecret_Write_ShouldReturnErrorAfterMaxCASRetries(t *testing.T) {
+	callCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"old-token"},"metadata":{"version":1}}}`))
+			return
+		}
+		callCount++
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":["check-and-set parameter did not match the current version"]}`))
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CAS conflict after 3 retries")
+	assert.Equal(t, 3, callCount)
+}
+
+func TestVaultSecret_WriteMetadata_ShouldRetryOnCASConflict(t *testing.T) {
+	callCount := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"old-token","token_id":1},"metadata":{"version":1}}}`))
+		case http.MethodPut:
+			callCount++
+			body, _ := io.ReadAll(r.Body)
+			if callCount == 1 {
+				assert.Contains(t, string(body), `"options":{"cas":1}`)
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"errors":["check-and-set parameter did not match the current version"]}`))
+				return
+			}
+			assert.Contains(t, string(body), `"options":{"cas":1}`)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":2}}}`))
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.WriteMetadata(context.Background(), TokenMetadata{TokenID: 2, TokenName: "new-token"})
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount)
 }

@@ -25,6 +25,10 @@ type VaultSecret struct {
 }
 
 func (vs *VaultSecret) InitClient(ctx context.Context) error {
+	if vs.Client != nil {
+		return nil
+	}
+
 	config := vault.DefaultConfig()
 
 	client, err := vault.NewClient(config)
@@ -173,15 +177,22 @@ func (vs *VaultSecret) Write(ctx context.Context, value string) error {
 		return fmt.Errorf("initializing vault client: %w", err)
 	}
 
-	secretData, err := vs.mergedSecretData(ctx, value)
-	if err != nil {
-		return fmt.Errorf("preparing vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		secretData, version, err := vs.mergedSecretData(ctx, value)
+		if err != nil {
+			return fmt.Errorf("preparing vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
+		}
+
+		_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData, vault.WithCheckAndSet(version))
+		if errPut == nil {
+			return nil
+		}
+		if !isCASConflict(errPut) {
+			return fmt.Errorf("writing vault secret %s/%s key %s: %w", vs.MountPath, vs.Path, vs.Key, errPut)
+		}
 	}
-	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
-	if errPut != nil {
-		return fmt.Errorf("writing vault secret %s/%s key %s: %w", vs.MountPath, vs.Path, vs.Key, errPut)
-	}
-	return nil
+	return fmt.Errorf("writing vault secret %s/%s key %s: CAS conflict after %d retries", vs.MountPath, vs.Path, vs.Key, maxRetries)
 }
 
 func (vs *VaultSecret) ReadMetadata(ctx context.Context) (TokenMetadata, error) {
@@ -231,38 +242,54 @@ func (vs *VaultSecret) WriteMetadata(ctx context.Context, meta TokenMetadata) er
 		return err
 	}
 
-	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
-	if err != nil {
-		return fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
-	}
+	const maxRetries = 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
+		if err != nil {
+			return fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
+		}
 
-	secretData := make(map[string]interface{})
-	if secret != nil {
-		for k, v := range secret.Data {
-			secretData[k] = v
+		secretData := make(map[string]interface{})
+		if secret != nil {
+			for k, v := range secret.Data {
+				secretData[k] = v
+			}
+		}
+
+		secretData["token_id"] = meta.TokenID
+		secretData["token_name"] = meta.TokenName
+		if !meta.CreatedAt.IsZero() {
+			secretData["created_at"] = meta.CreatedAt.Format(time.RFC3339Nano)
+		}
+
+		version := 0
+		if secret != nil && secret.VersionMetadata != nil {
+			version = secret.VersionMetadata.Version
+		}
+
+		_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData, vault.WithCheckAndSet(version))
+		if errPut == nil {
+			return nil
+		}
+		if !isCASConflict(errPut) {
+			return fmt.Errorf("writing vault metadata %s/%s: %w", vs.MountPath, vs.Path, errPut)
 		}
 	}
-
-	secretData["token_id"] = meta.TokenID
-	secretData["token_name"] = meta.TokenName
-	if !meta.CreatedAt.IsZero() {
-		secretData["created_at"] = meta.CreatedAt.Format(time.RFC3339Nano)
-	}
-
-	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
-	if errPut != nil {
-		return fmt.Errorf("writing vault metadata %s/%s: %w", vs.MountPath, vs.Path, errPut)
-	}
-	return nil
+	return fmt.Errorf("writing vault metadata %s/%s: CAS conflict after %d retries", vs.MountPath, vs.Path, maxRetries)
 }
 
-func (vs *VaultSecret) mergedSecretData(ctx context.Context, value string) (map[string]interface{}, error) {
+func (vs *VaultSecret) mergedSecretData(ctx context.Context, value string) (map[string]interface{}, int, error) {
 	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
 	if err != nil && !isVaultNotFound(err) {
-		return nil, fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
+		return nil, 0, fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
 	}
 
-	return mergeSecretData(secret, vs.Key, value), nil
+	version := 0
+	if secret != nil && secret.VersionMetadata != nil {
+		version = secret.VersionMetadata.Version
+	}
+
+	return mergeSecretData(secret, vs.Key, value), version, nil
 }
 
 func isVaultNotFound(err error) bool {
@@ -271,6 +298,14 @@ func isVaultNotFound(err error) bool {
 	}
 	var responseError *vault.ResponseError
 	return errors.As(err, &responseError) && responseError.StatusCode == http.StatusNotFound
+}
+
+func isCASConflict(err error) bool {
+	var responseError *vault.ResponseError
+	if errors.As(err, &responseError) && responseError.StatusCode == http.StatusBadRequest {
+		return true
+	}
+	return false
 }
 
 func mergeSecretData(secret *vault.KVSecret, key string, value string) map[string]interface{} {
