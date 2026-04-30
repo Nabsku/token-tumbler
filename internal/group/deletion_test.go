@@ -1,6 +1,7 @@
 package group
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"testing"
@@ -73,7 +74,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testing.
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tt")
+	err := DeleteGroupTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -108,7 +109,7 @@ func TestDeleteGroupTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod(t
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tt")
+	err := DeleteGroupTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
@@ -137,7 +138,7 @@ func TestDeleteGroupTokens_ShouldReturnRevokeErrors(t *testing.T) {
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tt")
+	err := DeleteGroupTokens(context.Background(), client, repo, "tt", 0)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "deleting token")
@@ -170,7 +171,7 @@ func TestDeleteGroupTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) {
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tt")
+	err := DeleteGroupTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -198,7 +199,7 @@ func TestDeleteGroupTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testing
 		}
 	})
 
-	err := DeleteGroupTokens(client, repo, "tt")
+	err := DeleteGroupTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)

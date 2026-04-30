@@ -1,6 +1,7 @@
 package group
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestCreateGroupAccessTokenOptions(t *testing.T) {
 }
 
 func TestRenewGroupAccessToken_ShouldValidateTokenNameBeforeGitLabCall(t *testing.T) {
-	token, err := RenewGroupAccessToken(nil, 1, &repository.Repository{}, "tt")
+	token, err := RenewGroupAccessToken(context.Background(), nil, 1, &repository.Repository{}, "tt")
 
 	require.Error(t, err)
 	assert.Nil(t, token)

@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"fmt"
 	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"gitlab.com/gitlab-org/api/client-go"
@@ -85,7 +86,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testin
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -120,7 +121,7 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{
@@ -149,7 +150,7 @@ func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "deleting token")
@@ -182,7 +183,7 @@ func TestDeleteProjectTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) 
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -210,7 +211,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testi
 		}
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.NoError(t, err)
 	assert.Empty(t, deleteCalls)
@@ -224,7 +225,7 @@ func TestDeleteProjectTokens_ShouldReturnErrorWhenProjectIsMissing(t *testing.T)
 		http.Error(w, "not found", http.StatusNotFound)
 	})
 
-	err := DeleteProjectTokens(client, repo, "tt")
+	err := DeleteProjectTokens(context.Background(), client, repo, "tt", 0)
 
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "no projects found"))

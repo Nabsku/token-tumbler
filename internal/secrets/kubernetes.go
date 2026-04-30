@@ -134,3 +134,99 @@ func (ks *K8sSecret) Write(ctx context.Context, value string) error {
 
 	return nil
 }
+
+func (ks *K8sSecret) metaKey() string {
+	return ks.SecretKey + "-meta"
+}
+
+func (ks *K8sSecret) ReadMetadata(ctx context.Context) (TokenMetadata, error) {
+	err := ks.InitClient(ctx)
+	if err != nil {
+		return TokenMetadata{}, fmt.Errorf("initializing kubernetes client: %w", err)
+	}
+
+	namespace := strings.TrimSpace(ks.Namespace)
+	secretName := strings.TrimSpace(ks.SecretName)
+	metaKey := strings.TrimSpace(ks.metaKey())
+
+	if namespace == "" {
+		return TokenMetadata{}, fmt.Errorf("k8sNamespace must not be blank")
+	}
+	if secretName == "" {
+		return TokenMetadata{}, fmt.Errorf("k8sSecretName must not be blank")
+	}
+
+	secret, err := ks.Client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return TokenMetadata{}, nil
+		}
+		return TokenMetadata{}, fmt.Errorf("reading kubernetes secret %s/%s: %w", namespace, secretName, err)
+	}
+
+	data, ok := secret.Data[metaKey]
+	if !ok {
+		return TokenMetadata{}, nil
+	}
+
+	meta, err := parseTokenMetadata(string(data))
+	if err != nil {
+		return TokenMetadata{}, fmt.Errorf("parsing kubernetes metadata %s/%s key %s: %w", namespace, secretName, metaKey, err)
+	}
+	return meta, nil
+}
+
+func (ks *K8sSecret) WriteMetadata(ctx context.Context, meta TokenMetadata) error {
+	err := ks.InitClient(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing kubernetes client: %w", err)
+	}
+
+	namespace := strings.TrimSpace(ks.Namespace)
+	secretName := strings.TrimSpace(ks.SecretName)
+	metaKey := strings.TrimSpace(ks.metaKey())
+
+	if namespace == "" {
+		return fmt.Errorf("k8sNamespace must not be blank")
+	}
+	if secretName == "" {
+		return fmt.Errorf("k8sSecretName must not be blank")
+	}
+
+	data, err := formatTokenMetadata(meta)
+	if err != nil {
+		return fmt.Errorf("formatting kubernetes metadata: %w", err)
+	}
+
+	secret, err := ks.Client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			newSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{
+					metaKey: []byte(data),
+				},
+			}
+			_, err = ks.Client.CoreV1().Secrets(namespace).Create(ctx, newSecret, metav1.CreateOptions{})
+			if err != nil {
+				return fmt.Errorf("creating kubernetes secret %s/%s: %w", namespace, secretName, err)
+			}
+			return nil
+		}
+		return fmt.Errorf("reading kubernetes secret %s/%s: %w", namespace, secretName, err)
+	}
+
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
+	secret.Data[metaKey] = []byte(data)
+
+	_, err = ks.Client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("updating kubernetes secret %s/%s: %w", namespace, secretName, err)
+	}
+	return nil
+}

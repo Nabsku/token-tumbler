@@ -82,3 +82,49 @@ func (fs *FileSecret) Write(_ context.Context, value string) error {
 	cleanup = false
 	return nil
 }
+
+func (fs *FileSecret) metaPath() string {
+	return fs.Path + ".meta"
+}
+
+func (fs *FileSecret) ReadMetadata(_ context.Context) (TokenMetadata, error) {
+	path := strings.TrimSpace(fs.metaPath())
+	if path == "" {
+		return TokenMetadata{}, fmt.Errorf("filePath must not be blank")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return TokenMetadata{}, nil
+		}
+		return TokenMetadata{}, fmt.Errorf("reading file metadata %s: %w", path, err)
+	}
+
+	meta, err := parseTokenMetadata(string(data))
+	if err != nil {
+		return TokenMetadata{}, fmt.Errorf("parsing file metadata %s: %w", path, err)
+	}
+	return meta, nil
+}
+
+func (fs *FileSecret) WriteMetadata(_ context.Context, meta TokenMetadata) error {
+	path := strings.TrimSpace(fs.metaPath())
+	if path == "" {
+		return fmt.Errorf("filePath must not be blank")
+	}
+
+	if err := helper.ValidateSecureFilePath(path); err != nil {
+		return fmt.Errorf("file metadata path validation failed: %w", err)
+	}
+
+	data, err := formatTokenMetadata(meta)
+	if err != nil {
+		return fmt.Errorf("formatting file metadata: %w", err)
+	}
+
+	if err := os.WriteFile(path, []byte(data), fileSecretMode); err != nil {
+		return fmt.Errorf("writing file metadata %s: %w", path, err)
+	}
+	return nil
+}

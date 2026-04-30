@@ -1,6 +1,7 @@
 package group
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/nabsku/token-tumbler/internal/logger"
@@ -14,7 +15,7 @@ import (
 
 var ErrInvalidGroupTokenResponse = errors.New("invalid group access token response")
 
-func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int64, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
+func CreateNewGroupToken(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
 	l := logger.GetLogger()
 
 	expiryDate, err := entry.GetExpiryDate()
@@ -27,7 +28,7 @@ func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int64, entry *repo
 	if err != nil {
 		return nil, err
 	}
-	token, err := createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
+	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +38,7 @@ func CreateNewGroupToken(gitlabClient *gitlab.Client, groupID int64, entry *repo
 	return token, nil
 }
 
-func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int64, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
+func RenewGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, entry *repository.Repository, prefix string) (*gitlab.GroupAccessToken, error) {
 	tokenName, err := entry.NewTokenName(prefix)
 	if err != nil {
 		return nil, err
@@ -46,7 +47,7 @@ func RenewGroupAccessToken(gitlabClient *gitlab.Client, groupID int64, entry *re
 	if err != nil {
 		return nil, err
 	}
-	token, err := createGroupAccessToken(gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
+	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, expiryDate)
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +70,13 @@ func validateGroupAccessTokenResponse(token *gitlab.GroupAccessToken) error {
 	return nil
 }
 
-func createGroupAccessToken(gitlabClient *gitlab.Client, groupID int64, tokenName string, scopes []string, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
+func createGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, tokenName string, scopes []string, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	opts := createGroupAccessTokenOptions(tokenName, scopes, expiry)
-	token, _, err := gitlabClient.GroupAccessTokens.CreateGroupAccessToken(groupID, opts)
+	token, _, err := gitlabClient.GroupAccessTokens.CreateGroupAccessToken(groupID, opts, gitlab.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}

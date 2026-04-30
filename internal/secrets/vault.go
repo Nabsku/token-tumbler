@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	vault "github.com/hashicorp/vault/api"
 	approle "github.com/hashicorp/vault/api/auth/approle"
@@ -171,6 +172,7 @@ func (vs *VaultSecret) Write(ctx context.Context, value string) error {
 	if err != nil {
 		return fmt.Errorf("initializing vault client: %w", err)
 	}
+
 	secretData, err := vs.mergedSecretData(ctx, value)
 	if err != nil {
 		return fmt.Errorf("preparing vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
@@ -178,6 +180,78 @@ func (vs *VaultSecret) Write(ctx context.Context, value string) error {
 	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
 	if errPut != nil {
 		return fmt.Errorf("writing vault secret %s/%s key %s: %w", vs.MountPath, vs.Path, vs.Key, errPut)
+	}
+	return nil
+}
+
+func (vs *VaultSecret) ReadMetadata(ctx context.Context) (TokenMetadata, error) {
+	err := vs.InitClient(ctx)
+	if err != nil {
+		return TokenMetadata{}, err
+	}
+
+	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
+	if err != nil {
+		return TokenMetadata{}, fmt.Errorf("reading vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
+	}
+	if secret == nil || secret.Data == nil {
+		return TokenMetadata{}, fmt.Errorf("secret %s does not exist", vs.Path)
+	}
+
+	var meta TokenMetadata
+	if v, ok := secret.Data["token_id"]; ok {
+		switch id := v.(type) {
+		case float64:
+			meta.TokenID = int64(id)
+		case int64:
+			meta.TokenID = id
+		case int:
+			meta.TokenID = int64(id)
+		}
+	}
+	if v, ok := secret.Data["token_name"]; ok {
+		if s, ok := v.(string); ok {
+			meta.TokenName = s
+		}
+	}
+	if v, ok := secret.Data["created_at"]; ok {
+		if s, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+				meta.CreatedAt = t
+			}
+		}
+	}
+
+	return meta, nil
+}
+
+func (vs *VaultSecret) WriteMetadata(ctx context.Context, meta TokenMetadata) error {
+	err := vs.InitClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
+	if err != nil {
+		return fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
+	}
+
+	secretData := make(map[string]interface{})
+	if secret != nil {
+		for k, v := range secret.Data {
+			secretData[k] = v
+		}
+	}
+
+	secretData["token_id"] = meta.TokenID
+	secretData["token_name"] = meta.TokenName
+	if !meta.CreatedAt.IsZero() {
+		secretData["created_at"] = meta.CreatedAt.Format(time.RFC3339Nano)
+	}
+
+	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
+	if errPut != nil {
+		return fmt.Errorf("writing vault metadata %s/%s: %w", vs.MountPath, vs.Path, errPut)
 	}
 	return nil
 }
