@@ -28,10 +28,20 @@ func ForRepository(entry *repository.Repository) (SecretStore, error) {
 		if vaultPath == "" || vaultKey == "" || vaultMount == "" {
 			return nil, fmt.Errorf("%w: vaultPath, vaultKey, and vaultMount must not be blank", repository.ErrInvalidRepositoryConfig)
 		}
+		authMethod := ""
+		if entry.VaultAuthMethod != nil {
+			authMethod = strings.TrimSpace(*entry.VaultAuthMethod)
+		}
+		authRole := ""
+		if entry.VaultAuthRole != nil {
+			authRole = strings.TrimSpace(*entry.VaultAuthRole)
+		}
 		return &VaultSecret{
-			Path:      vaultPath,
-			Key:       vaultKey,
-			MountPath: vaultMount,
+			Path:       vaultPath,
+			Key:        vaultKey,
+			MountPath:  vaultMount,
+			AuthMethod: authMethod,
+			AuthRole:   authRole,
 		}, nil
 	case "file":
 		if entry.FilePath == nil {

@@ -105,3 +105,54 @@ func TestMergeSecretData_ShouldCreateSecretDataWhenNoExistingSecret(t *testing.T
 func TestIsVaultNotFound_ShouldRecognizeKVSecretNotFound(t *testing.T) {
 	assert.True(t, isVaultNotFound(vault.ErrSecretNotFound))
 }
+
+func TestVaultSecret_InitClient_ShouldReturnErrorForMissingToken(t *testing.T) {
+	t.Setenv("VAULT_TOKEN", "")
+	secret := &VaultSecret{AuthMethod: "token"}
+
+	err := secret.InitClient(context.Background())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "VAULT_TOKEN is required")
+	assert.Nil(t, secret.Client)
+}
+
+func TestVaultSecret_InitClient_ShouldUseToken(t *testing.T) {
+	t.Setenv("VAULT_TOKEN", "my-test-token")
+	secret := &VaultSecret{AuthMethod: "token"}
+
+	err := secret.InitClient(context.Background())
+
+	require.NoError(t, err)
+	assert.NotNil(t, secret.Client)
+}
+
+func TestVaultSecret_InitClient_ShouldReturnErrorForMissingK8sRole(t *testing.T) {
+	secret := &VaultSecret{AuthMethod: "kubernetes"}
+
+	err := secret.InitClient(context.Background())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "vaultAuthRole is required")
+	assert.Nil(t, secret.Client)
+}
+
+func TestVaultSecret_InitClient_ShouldReturnErrorForMissingAwsRole(t *testing.T) {
+	secret := &VaultSecret{AuthMethod: "aws"}
+
+	err := secret.InitClient(context.Background())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "vaultAuthRole is required")
+	assert.Nil(t, secret.Client)
+}
+
+func TestVaultSecret_InitClient_ShouldDefaultToAppRole(t *testing.T) {
+	t.Setenv("APPROLE_ID", "")
+	secret := &VaultSecret{}
+
+	err := secret.InitClient(context.Background())
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "APPROLE_ID is required")
+}
