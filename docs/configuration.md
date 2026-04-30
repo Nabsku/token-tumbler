@@ -40,7 +40,7 @@ Each entry must define exactly one target (`repoName` or `groupName`):
 | `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
 | `lifetime`          | Yes                              | Maximum lifetime for newly-created tokens. Must be greater than `rotationThreshold`. |
 | `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
-| `secretStore`       | Yes                              | `vault`, `file`, `aws`, or `none`. Use `none` only for intentional no-persistence runs. |
+| `secretStore`       | Yes                              | `vault`, `file`, `aws`, `k8s`, or `none`. Use `none` only for intentional no-persistence runs. |
 | `vaultMount`        | For Vault                        | Vault KVv2 mount name.                                                               |
 | `vaultPath`         | For Vault                        | Vault KVv2 secret path.                                                              |
 | `vaultKey`          | For Vault                        | Key inside the KVv2 secret data to write.                                            |
@@ -49,6 +49,9 @@ Each entry must define exactly one target (`repoName` or `groupName`):
 | `filePath`          | For file                         | Destination path for the token file. Parent directory must already exist.            |
 | `awsSecretName`     | For AWS                          | Name of the secret in AWS Secrets Manager.                                           |
 | `awsRegion`         | For AWS                          | AWS region where the secret is stored.                                               |
+| `k8sNamespace`      | For k8s                          | Kubernetes namespace where the secret lives.                                         |
+| `k8sSecretName`     | For k8s                          | Name of the Kubernetes Secret resource.                                              |
+| `k8sSecretKey`      | For k8s                          | Key inside the Kubernetes Secret data to write.                                      |
 
 ## Durations
 

@@ -241,6 +241,66 @@ func TestConfig_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "awsRegion is required")
 	})
 
+	t.Run("accepts valid k8s secret store config", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "k8s"
+		repo.K8sNamespace = gitlab.Ptr("default")
+		repo.K8sSecretName = gitlab.Ptr("my-secret")
+		repo.K8sSecretKey = gitlab.Ptr("token")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects k8s secret store without namespace", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "k8s"
+		repo.K8sSecretName = gitlab.Ptr("my-secret")
+		repo.K8sSecretKey = gitlab.Ptr("token")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "k8sNamespace is required")
+	})
+
+	t.Run("rejects k8s secret store without secret name", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "k8s"
+		repo.K8sNamespace = gitlab.Ptr("default")
+		repo.K8sSecretKey = gitlab.Ptr("token")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "k8sSecretName is required")
+	})
+
+	t.Run("rejects k8s secret store without secret key", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "k8s"
+		repo.K8sNamespace = gitlab.Ptr("default")
+		repo.K8sSecretName = gitlab.Ptr("my-secret")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "k8sSecretKey is required")
+	})
+
 	t.Run("requires explicit secret store", func(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.SecretStore = ""

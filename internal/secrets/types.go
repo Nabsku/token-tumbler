@@ -62,6 +62,17 @@ func ForRepository(entry *repository.Repository) (SecretStore, error) {
 			return nil, fmt.Errorf("%w: awsSecretName and awsRegion must not be blank", repository.ErrInvalidRepositoryConfig)
 		}
 		return &AWSSecret{SecretName: secretName, Region: region}, nil
+	case "k8s":
+		if entry.K8sNamespace == nil || entry.K8sSecretName == nil || entry.K8sSecretKey == nil {
+			return nil, fmt.Errorf("%w: k8sNamespace, k8sSecretName, and k8sSecretKey are required for k8s secret store", repository.ErrInvalidRepositoryConfig)
+		}
+		namespace := strings.TrimSpace(*entry.K8sNamespace)
+		secretName := strings.TrimSpace(*entry.K8sSecretName)
+		secretKey := strings.TrimSpace(*entry.K8sSecretKey)
+		if namespace == "" || secretName == "" || secretKey == "" {
+			return nil, fmt.Errorf("%w: k8sNamespace, k8sSecretName, and k8sSecretKey must not be blank", repository.ErrInvalidRepositoryConfig)
+		}
+		return &K8sSecret{Namespace: namespace, SecretName: secretName, SecretKey: secretKey}, nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported secret store %q", repository.ErrInvalidRepositoryConfig, entry.SecretStore)
 	}
