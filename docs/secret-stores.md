@@ -1,6 +1,6 @@
 # Secret Stores
 
-Token Tumbler supports four secret store backends for persisting generated GitLab token values.
+Token Tumbler supports five secret store backends for persisting generated GitLab token values.
 
 ## Overview
 
@@ -9,6 +9,7 @@ Token Tumbler supports four secret store backends for persisting generated GitLa
 | `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
 | `file`  | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist.                                 |
 | `aws`   | Writes the token value to AWS Secrets Manager. Uses the standard AWS credential chain.                                                                                        |
+| `k8s`   | Writes the token value to a Kubernetes Secret. Uses in-cluster config or kubeconfig. Other keys in the secret are preserved.                                                  |
 | `none`  | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere.                                                                  |
 
 ## Vault
@@ -130,6 +131,63 @@ No additional configuration is required beyond ensuring AWS credentials are avai
 - Creates a new secret version on each write
 - The secret must already exist in AWS Secrets Manager
 - Uses the AWS SDK for Go v2
+
+## Kubernetes Secrets
+
+The Kubernetes secret store writes token values to a Kubernetes Secret in a specified namespace:
+
+```yaml
+secretStore: k8s
+k8sNamespace: default
+k8sSecretName: gitlab-token
+k8sSecretKey: token
+```
+
+### Authentication
+
+The Kubernetes secret store automatically detects the execution environment:
+
+1. **In-cluster**: Uses the service account token mounted at `/var/run/secrets/kubernetes.io/serviceaccount/token`
+2. **Outside cluster**: Loads kubeconfig from the default location (`~/.kube/config`) or via the `KUBECONFIG` environment variable
+
+No additional configuration is required when running inside a Kubernetes pod with appropriate RBAC.
+
+### RBAC
+
+The service account used by Token Tumbler needs permission to read and write secrets in the target namespace:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: token-tumbler-secret-manager
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  namespace: default
+  name: token-tumbler-secret-manager
+subjects:
+  - kind: ServiceAccount
+    name: token-tumbler
+    namespace: default
+roleRef:
+  kind: Role
+  name: token-tumbler-secret-manager
+  apiGroup: rbac.authorization.k8s.io
+```
+
+### Behavior
+
+- Creates the secret if it does not exist
+- Merges the token value into existing secret data; other keys are preserved
+- Uses the `Opaque` secret type
+- Requires `k8sNamespace`, `k8sSecretName`, and `k8sSecretKey`
 
 ## None
 

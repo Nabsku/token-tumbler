@@ -94,6 +94,9 @@ type (
 		FilePath          *string   `yaml:"filePath,omitempty"`
 		AWSSecretName     *string   `yaml:"awsSecretName,omitempty"`
 		AWSRegion         *string   `yaml:"awsRegion,omitempty"`
+		K8sNamespace      *string   `yaml:"k8sNamespace,omitempty"`
+		K8sSecretName     *string   `yaml:"k8sSecretName,omitempty"`
+		K8sSecretKey      *string   `yaml:"k8sSecretKey,omitempty"`
 	}
 )
 
@@ -234,6 +237,17 @@ func (r *Repository) validateSecretStore() error {
 		}
 		if r.AWSRegion == nil || strings.TrimSpace(*r.AWSRegion) == "" {
 			return fmt.Errorf("%w: awsRegion is required for aws secret store", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	case "k8s":
+		if r.K8sNamespace == nil || strings.TrimSpace(*r.K8sNamespace) == "" {
+			return fmt.Errorf("%w: k8sNamespace is required for k8s secret store", ErrInvalidRepositoryConfig)
+		}
+		if r.K8sSecretName == nil || strings.TrimSpace(*r.K8sSecretName) == "" {
+			return fmt.Errorf("%w: k8sSecretName is required for k8s secret store", ErrInvalidRepositoryConfig)
+		}
+		if r.K8sSecretKey == nil || strings.TrimSpace(*r.K8sSecretKey) == "" {
+			return fmt.Errorf("%w: k8sSecretKey is required for k8s secret store", ErrInvalidRepositoryConfig)
 		}
 		return nil
 	default:
