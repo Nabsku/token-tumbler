@@ -89,6 +89,8 @@ type (
 		VaultPath         *string   `yaml:"vaultPath,omitempty"`
 		VaultKey          *string   `yaml:"vaultKey,omitempty"`
 		Mount             *string   `yaml:"vaultMount,omitempty"`
+		VaultAuthMethod   *string   `yaml:"vaultAuthMethod,omitempty"`
+		VaultAuthRole     *string   `yaml:"vaultAuthRole,omitempty"`
 		FilePath          *string   `yaml:"filePath,omitempty"`
 	}
 )
@@ -218,7 +220,7 @@ func (r *Repository) validateSecretStore() error {
 		if r.Mount == nil || strings.TrimSpace(*r.Mount) == "" {
 			return fmt.Errorf("%w: vaultMount is required for vault secret store", ErrInvalidRepositoryConfig)
 		}
-		return nil
+		return r.validateVaultAuthMethod()
 	case "file":
 		if r.FilePath == nil || strings.TrimSpace(*r.FilePath) == "" {
 			return fmt.Errorf("%w: filePath is required for file secret store", ErrInvalidRepositoryConfig)
@@ -226,6 +228,32 @@ func (r *Repository) validateSecretStore() error {
 		return nil
 	default:
 		return fmt.Errorf("%w: unsupported secret store %q", ErrInvalidRepositoryConfig, r.SecretStore)
+	}
+}
+
+func (r *Repository) validateVaultAuthMethod() error {
+	authMethod := "approle"
+	if r.VaultAuthMethod != nil && strings.TrimSpace(*r.VaultAuthMethod) != "" {
+		authMethod = strings.ToLower(strings.TrimSpace(*r.VaultAuthMethod))
+	}
+
+	switch authMethod {
+	case "approle":
+		return nil
+	case "token":
+		return nil
+	case "kubernetes":
+		if r.VaultAuthRole == nil || strings.TrimSpace(*r.VaultAuthRole) == "" {
+			return fmt.Errorf("%w: vaultAuthRole is required for kubernetes vault auth", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	case "aws":
+		if r.VaultAuthRole == nil || strings.TrimSpace(*r.VaultAuthRole) == "" {
+			return fmt.Errorf("%w: vaultAuthRole is required for aws vault auth", ErrInvalidRepositoryConfig)
+		}
+		return nil
+	default:
+		return fmt.Errorf("%w: unsupported vault auth method %q", ErrInvalidRepositoryConfig, authMethod)
 	}
 }
 

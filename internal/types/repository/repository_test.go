@@ -140,6 +140,65 @@ func TestConfig_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "vaultKey is required")
 	})
 
+	t.Run("accepts vault with token auth method", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("token")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("accepts vault with kubernetes auth method and role", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("kubernetes")
+		repo.VaultAuthRole = gitlab.Ptr("my-role")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects kubernetes auth without role", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("kubernetes")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "vaultAuthRole is required")
+	})
+
+	t.Run("accepts vault with aws auth method and role", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("aws")
+		repo.VaultAuthRole = gitlab.Ptr("my-role")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects aws auth without role", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("aws")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "vaultAuthRole is required")
+	})
+
+	t.Run("rejects unsupported vault auth method", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.VaultAuthMethod = gitlab.Ptr("ldap")
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "unsupported vault auth method")
+	})
+
 	t.Run("requires explicit secret store", func(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.SecretStore = ""

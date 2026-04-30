@@ -183,6 +183,8 @@ Each entry must define exactly one target:
 | `vaultMount` | For Vault | Vault KVv2 mount name. |
 | `vaultPath` | For Vault | Vault KVv2 secret path. |
 | `vaultKey` | For Vault | Key inside the KVv2 secret data to write. |
+| `vaultAuthMethod` | For Vault | Auth method: `approle` (default), `token`, `kubernetes`, or `aws`. |
+| `vaultAuthRole` | For k8s/AWS | Role name for Kubernetes or AWS auth. |
 | `filePath` | For file | Destination path for the token file. Parent directory must already exist. |
 
 Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
@@ -193,7 +195,7 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 
 | Store | Description |
 | --- | --- |
-| `vault` | Writes the token value to Vault KVv2 using AppRole auth. Existing secret data is merged so unrelated keys are preserved. |
+| `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
 | `file` | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist. |
 | `none` | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere. |
 
@@ -213,8 +215,10 @@ File storage is only as safe as the host filesystem. Prefer tmpfs or encrypted d
 | `GITLAB_URL` | Yes | Base URL for GitLab. |
 | `GITLAB_TOKEN` | Yes | Token with access-token management permissions. |
 | `TOKEN_TUMBLER_INTERVAL` | No | Poll interval. Defaults to `5m`. |
-| `APPROLE_ID` | When using Vault | Vault AppRole role id. |
-| `APPROLE_SECRET` | When using Vault | Vault AppRole secret id. |
+| `APPROLE_ID` | For Vault AppRole | Vault AppRole role id. |
+| `APPROLE_SECRET` | For Vault AppRole | Vault AppRole secret id. |
+| `VAULT_TOKEN` | For Vault token auth | Direct Vault token. |
+| `VAULT_K8S_TOKEN_PATH` | For Vault k8s auth | Path to Kubernetes service account token. Defaults to in-cluster path. |
 | `LOG_LEVEL` | No | Logger verbosity. |
 
 ## Token naming
