@@ -133,7 +133,7 @@ podDisruptionBudget:
 
 # -- Network Policy configuration.
 networkPolicy:
-  enabled: true
+  enabled: false
   # -- Egress rules. By default, allow HTTPS/HTTP/DNS to anywhere (needed for GitLab, Vault, AWS APIs).
   egress:
     - to: []
