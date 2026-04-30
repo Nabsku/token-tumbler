@@ -256,6 +256,48 @@ func TestProcessRepository_ShouldNotDeleteOldProjectTokenWhenVaultWriteFails(t *
 	assert.Empty(t, deleteCalls)
 }
 
+func TestProcessRepository_ShouldNotDeleteOldGroupTokenWhenVaultWriteFails(t *testing.T) {
+	t.Setenv("APPROLE_ID", "")
+	t.Setenv("APPROLE_SECRET", "")
+	groupName := "platform"
+	vaultPath := "teams/platform"
+	vaultKey := "gitlab_token"
+	vaultMount := "kv"
+	repo := repository.Repository{
+		GroupName:         &groupName,
+		Name:              "platform",
+		Permissions:       []string{"api"},
+		RotationThreshold: &repository.Duration{Duration: 24 * time.Hour},
+		GracePeriod:       &repository.Duration{Duration: time.Hour},
+		Lifetime:          repository.Duration{Duration: 72 * time.Hour},
+		SecretStore:       "vault",
+		VaultPath:         &vaultPath,
+		VaultKey:          &vaultKey,
+		Mount:             &vaultMount,
+	}
+	deleteCalls := make([]string, 0)
+	client := newMainTestGitlabClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/platform":
+			_, _ = w.Write([]byte(`{"id":42,"name":"platform"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/groups/42/access_tokens":
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v4/groups/42/access_tokens":
+			_, _ = w.Write([]byte(`{"id":99,"name":"tt-platform-new","token":"new-secret","active":true}`))
+		case r.Method == http.MethodDelete:
+			deleteCalls = append(deleteCalls, r.URL.Path)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusNotFound)
+		}
+	})
+
+	NewRunner(client, &repository.Config{Prefix: "tt"}, logger.GetLogger()).ProcessRepository(context.Background(), repo, 0)
+
+	assert.Empty(t, deleteCalls)
+}
+
 func TestProcessRepository_ShouldAttemptProjectDeletionAndStopOnRevokeFailure(t *testing.T) {
 	repoName := "service"
 	repo := repository.Repository{
