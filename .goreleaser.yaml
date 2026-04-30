@@ -44,39 +44,19 @@ sboms:
 changelog:
   use: git
 
-dockers:
-  - id: token-tumbler-amd64
+dockers_v2:
+  - id: token-tumbler
     ids:
       - token-tumbler
-    goos: linux
-    goarch: amd64
+    images:
+      - ghcr.io/nabsku/token-tumbler
+    tags:
+      - "{{.Version}}"
+      - latest
     dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/amd64
-    image_templates:
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
-  - id: token-tumbler-arm64
-    ids:
-      - token-tumbler
-    goos: linux
-    goarch: arm64
-    dockerfile: Dockerfile.goreleaser
-    use: buildx
-    build_flag_templates:
-      - --platform=linux/arm64
-    image_templates:
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
-
-docker_manifests:
-  - name_template: ghcr.io/nabsku/token-tumbler:{{.Version}}
-    image_templates:
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
-  - name_template: ghcr.io/nabsku/token-tumbler:latest
-    image_templates:
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
-      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
+    platforms:
+      - linux/amd64
+      - linux/arm64
 
 release:
   github:
