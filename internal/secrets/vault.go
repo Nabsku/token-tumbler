@@ -14,7 +14,6 @@ import (
 type VaultSecret struct {
 	Path      string
 	Key       string
-	Value     string
 	MountPath string
 	Client    *vault.Client
 }
@@ -60,12 +59,12 @@ func (vs *VaultSecret) InitClient(ctx context.Context) error {
 func (vs *VaultSecret) Read(ctx context.Context) (string, error) {
 	err := vs.InitClient(ctx)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("initializing vault client: %w", err)
 	}
 
 	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
 	}
 	if secret == nil || secret.Data == nil {
 		return "", fmt.Errorf("secret %s does not exist", vs.Path)
@@ -82,29 +81,29 @@ func (vs *VaultSecret) Read(ctx context.Context) (string, error) {
 	return value, nil
 }
 
-func (vs *VaultSecret) Write(ctx context.Context) error {
+func (vs *VaultSecret) Write(ctx context.Context, value string) error {
 	err := vs.InitClient(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("initializing vault client: %w", err)
 	}
-	secretData, err := vs.mergedSecretData(ctx)
+	secretData, err := vs.mergedSecretData(ctx, value)
 	if err != nil {
-		return err
+		return fmt.Errorf("preparing vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
 	}
 	_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData)
 	if errPut != nil {
-		return errPut
+		return fmt.Errorf("writing vault secret %s/%s key %s: %w", vs.MountPath, vs.Path, vs.Key, errPut)
 	}
 	return nil
 }
 
-func (vs *VaultSecret) mergedSecretData(ctx context.Context) (map[string]interface{}, error) {
+func (vs *VaultSecret) mergedSecretData(ctx context.Context, value string) (map[string]interface{}, error) {
 	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
 	if err != nil && !isVaultNotFound(err) {
-		return nil, fmt.Errorf("reading existing secret before merge: %w", err)
+		return nil, fmt.Errorf("reading existing vault secret %s/%s before merge: %w", vs.MountPath, vs.Path, err)
 	}
 
-	return mergeSecretData(secret, vs.Key, vs.Value), nil
+	return mergeSecretData(secret, vs.Key, value), nil
 }
 
 func isVaultNotFound(err error) bool {

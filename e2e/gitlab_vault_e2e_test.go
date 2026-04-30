@@ -94,7 +94,6 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	vaultSecret := &secrets.VaultSecret{
 		Path:      vaultPath,
 		Key:       vaultKey,
-		Value:     createdToken.Token,
 		MountPath: vaultMount,
 	}
 	t.Cleanup(func() {
@@ -103,7 +102,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, vaultSecret.Write(ctx))
+	require.NoError(t, vaultSecret.Write(ctx, createdToken.Token))
 
 	readBack, err := (&secrets.VaultSecret{
 		Path:      vaultPath,

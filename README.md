@@ -93,6 +93,7 @@ Token Tumbler is deliberately conservative:
 - Go 1.25 or newer
 - A GitLab token with permission to list, create, and revoke project/group access tokens
 - Vault AppRole credentials when any entry uses `secretStore: vault`
+- A secure host filesystem path when any entry uses `secretStore: file`
 - Docker for the optional Testcontainers E2E suite
 
 ## Quick start
@@ -152,6 +153,7 @@ classDiagram
         string vaultMount
         string vaultPath
         string vaultKey
+        string filePath
     }
 
     Config "1" --> "1..*" Repository
@@ -177,10 +179,11 @@ Each entry must define exactly one target:
 | `rotationThreshold` | Yes | How soon before expiry a token should be renewed. |
 | `lifetime` | Yes | Maximum lifetime for newly-created tokens. Must be greater than `rotationThreshold`. |
 | `gracePeriod` | Yes | How long to keep older tokens after a newer token exists. May be `0`. |
-| `secretStore` | Yes | `vault` or `none`. Use `none` only for intentional no-persistence runs. |
+| `secretStore` | Yes | `vault`, `file`, or `none`. Use `none` only for intentional no-persistence runs. |
 | `vaultMount` | For Vault | Vault KVv2 mount name. |
 | `vaultPath` | For Vault | Vault KVv2 secret path. |
 | `vaultKey` | For Vault | Key inside the KVv2 secret data to write. |
+| `filePath` | For file | Destination path for the token file. Parent directory must already exist. |
 
 Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
 
@@ -191,7 +194,17 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | Store | Description |
 | --- | --- |
 | `vault` | Writes the token value to Vault KVv2 using AppRole auth. Existing secret data is merged so unrelated keys are preserved. |
+| `file` | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist. |
 | `none` | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere. |
+
+File secret-store example:
+
+```yaml
+secretStore: file
+filePath: /run/secrets/gitlab-token
+```
+
+File storage is only as safe as the host filesystem. Prefer tmpfs or encrypted disks where appropriate, protect parent directory permissions, and never commit generated token files.
 
 ## Environment variables
 

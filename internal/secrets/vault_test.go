@@ -2,9 +2,11 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	vault "github.com/hashicorp/vault/api"
+	"github.com/nabsku/token-tumbler/internal/types/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,6 +23,59 @@ func TestVaultSecret_InitClient_ShouldReturnErrorForInvalidAppRoleConfig(t *test
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to initialize AppRole auth method")
+	assert.Nil(t, secret.Client)
+}
+
+func TestForRepository_ShouldRejectBlankVaultConfig(t *testing.T) {
+	vaultPath := "  "
+	vaultKey := "gitlab_token"
+	vaultMount := "kv"
+	entry := &repository.Repository{
+		SecretStore: "vault",
+		VaultPath:   &vaultPath,
+		VaultKey:    &vaultKey,
+		Mount:       &vaultMount,
+	}
+
+	store, err := ForRepository(entry)
+
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, repository.ErrInvalidRepositoryConfig))
+	assert.Contains(t, err.Error(), "must not be blank")
+	assert.Nil(t, store)
+}
+
+func TestForRepository_ShouldTrimVaultConfig(t *testing.T) {
+	vaultPath := "  gitlab/project  "
+	vaultKey := "  gitlab_token  "
+	vaultMount := "  kv  "
+	entry := &repository.Repository{
+		SecretStore: "vault",
+		VaultPath:   &vaultPath,
+		VaultKey:    &vaultKey,
+		Mount:       &vaultMount,
+	}
+
+	store, err := ForRepository(entry)
+
+	require.NoError(t, err)
+	secret, ok := store.(*VaultSecret)
+	require.True(t, ok)
+	assert.Equal(t, "gitlab/project", secret.Path)
+	assert.Equal(t, "gitlab_token", secret.Key)
+	assert.Equal(t, "kv", secret.MountPath)
+}
+
+func TestVaultSecret_Write_ShouldWrapInitClientErrors(t *testing.T) {
+	t.Setenv("APPROLE_ID", "role-id")
+	t.Setenv("APPROLE_SECRET", "")
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv"}
+
+	err := secret.Write(context.Background(), "token")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "initializing vault client")
+	assert.Contains(t, err.Error(), "APPROLE_SECRET is required")
 	assert.Nil(t, secret.Client)
 }
 
