@@ -382,3 +382,97 @@ func uniqueStrings(values []string) []string {
 	}
 	return unique
 }
+
+type mockSecretStore struct {
+	readValue       string
+	readErr         error
+	writeCalls      []string
+	writeErr        error
+	writeErrOnCall  int // 0 = all calls, N = only on Nth call (1-based)
+	writeCallCount  int
+	writeMetaErr    error
+	readMetaValue   secrets.TokenMetadata
+	readMetaErr     error
+}
+
+func (m *mockSecretStore) Read(_ context.Context) (string, error) {
+	return m.readValue, m.readErr
+}
+
+func (m *mockSecretStore) Write(_ context.Context, value string) error {
+	m.writeCallCount++
+	m.writeCalls = append(m.writeCalls, value)
+	if m.writeErr != nil && (m.writeErrOnCall == 0 || m.writeErrOnCall == m.writeCallCount) {
+		return m.writeErr
+	}
+	return nil
+}
+
+func (m *mockSecretStore) InitClient(_ context.Context) error {
+	return nil
+}
+
+func (m *mockSecretStore) ReadMetadata(_ context.Context) (secrets.TokenMetadata, error) {
+	return m.readMetaValue, m.readMetaErr
+}
+
+func (m *mockSecretStore) WriteMetadata(_ context.Context, _ secrets.TokenMetadata) error {
+	return m.writeMetaErr
+}
+
+func TestPersistToken(t *testing.T) {
+	t.Run("returns nil when secret store is nil", func(t *testing.T) {
+		err := persistToken(context.Background(), nil, nil, "token", secrets.TokenMetadata{})
+		require.NoError(t, err)
+	})
+
+	t.Run("returns error when write fails", func(t *testing.T) {
+		mock := &mockSecretStore{writeErr: fmt.Errorf("write failed")}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "writing token")
+		assert.Equal(t, []string{"new-token"}, mock.writeCalls)
+	})
+
+	t.Run("returns error when metadata write fails without restoring if read failed", func(t *testing.T) {
+		mock := &mockSecretStore{
+			readErr:      fmt.Errorf("not found"),
+			writeMetaErr: fmt.Errorf("metadata failed"),
+		}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "writing metadata")
+		assert.Equal(t, []string{"new-token"}, mock.writeCalls)
+	})
+
+	t.Run("restores old value when metadata write fails", func(t *testing.T) {
+		mock := &mockSecretStore{
+			readValue:    "old-token",
+			writeMetaErr: fmt.Errorf("metadata failed"),
+		}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "writing metadata")
+		assert.Equal(t, []string{"new-token", "old-token"}, mock.writeCalls)
+	})
+
+	t.Run("returns combined error when restore fails", func(t *testing.T) {
+		mock := &mockSecretStore{
+			readValue:      "old-token",
+			writeMetaErr:   fmt.Errorf("metadata failed"),
+			writeErr:       fmt.Errorf("restore failed"),
+			writeErrOnCall: 2, // fail on the restore write only
+		}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unable to restore previous token")
+		assert.Equal(t, []string{"new-token", "old-token"}, mock.writeCalls)
+	})
+
+	t.Run("succeeds when both writes succeed", func(t *testing.T) {
+		mock := &mockSecretStore{readValue: "old-token"}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{TokenID: 1})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"new-token"}, mock.writeCalls)
+	})
+}

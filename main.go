@@ -134,10 +134,22 @@ func persistToken(ctx context.Context, entry *repository.Repository, secret secr
 	if secret == nil {
 		return nil
 	}
+
+	// Capture current secret value so we can restore it if metadata write fails.
+	// This prevents consumers from receiving a revoked token after rollback.
+	oldValue, readErr := secret.Read(ctx)
+
 	if err := secret.Write(ctx, token); err != nil {
 		return fmt.Errorf("writing token: %w", err)
 	}
+
 	if err := secret.WriteMetadata(ctx, meta); err != nil {
+		// Restore previous token value so consumers don't receive a revoked token.
+		if readErr == nil {
+			if restoreErr := secret.Write(ctx, oldValue); restoreErr != nil {
+				return fmt.Errorf("writing metadata failed and unable to restore previous token: %w (restore error: %v)", err, restoreErr)
+			}
+		}
 		return fmt.Errorf("writing metadata: %w", err)
 	}
 	return nil
