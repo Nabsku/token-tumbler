@@ -1,0 +1,84 @@
+version: 2
+
+project_name: token-tumbler
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: token-tumbler
+    binary: token-tumbler
+    main: .
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+changelog:
+  use: git
+
+dockers:
+  - id: token-tumbler-amd64
+    ids:
+      - token-tumbler
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/amd64
+    image_templates:
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
+  - id: token-tumbler-arm64
+    ids:
+      - token-tumbler
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - --platform=linux/arm64
+    image_templates:
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
+
+docker_manifests:
+  - name_template: ghcr.io/nabsku/token-tumbler:{{.Version}}
+    image_templates:
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
+  - name_template: ghcr.io/nabsku/token-tumbler:latest
+    image_templates:
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-amd64
+      - ghcr.io/nabsku/token-tumbler:{{.Version}}-arm64
+
+release:
+  github:
+    owner: nabsku
+    name: token-tumbler

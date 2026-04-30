@@ -199,6 +199,48 @@ func TestConfig_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "unsupported vault auth method")
 	})
 
+	t.Run("accepts valid aws secret store config", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "aws"
+		repo.AWSSecretName = gitlab.Ptr("my-secret")
+		repo.AWSRegion = gitlab.Ptr("us-east-1")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects aws secret store without secret name", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "aws"
+		repo.AWSRegion = gitlab.Ptr("us-east-1")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "awsSecretName is required")
+	})
+
+	t.Run("rejects aws secret store without region", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.SecretStore = "aws"
+		repo.AWSSecretName = gitlab.Ptr("my-secret")
+		repo.VaultPath = nil
+		repo.VaultKey = nil
+		repo.Mount = nil
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "awsRegion is required")
+	})
+
 	t.Run("requires explicit secret store", func(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.SecretStore = ""

@@ -1,0 +1,12 @@
+services:
+  token-tumbler:
+    image: ghcr.io/nabsku/token-tumbler:latest
+    build: .
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+    environment:
+      - GITLAB_TOKEN=${GITLAB_TOKEN:?Set GITLAB_TOKEN}
+      - GITLAB_URL=${GITLAB_URL:?Set GITLAB_URL}
+      - TOKEN_TUMBLER_INTERVAL=${TOKEN_TUMBLER_INTERVAL:-}
+      - APPROLE_ID=${APPROLE_ID:-}
+      - APPROLE_SECRET=${APPROLE_SECRET:-}

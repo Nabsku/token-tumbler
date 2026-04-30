@@ -1,6 +1,6 @@
 # Secret Stores
 
-Token Tumbler supports three secret store backends for persisting generated GitLab token values.
+Token Tumbler supports four secret store backends for persisting generated GitLab token values.
 
 ## Overview
 
@@ -8,6 +8,7 @@ Token Tumbler supports three secret store backends for persisting generated GitL
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
 | `file`  | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist.                                 |
+| `aws`   | Writes the token value to AWS Secrets Manager. Uses the standard AWS credential chain.                                                                                        |
 | `none`  | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere.                                                                  |
 
 ## Vault
@@ -103,6 +104,32 @@ filePath: /run/secrets/gitlab-token
 - Prefer tmpfs or encrypted disks where appropriate
 - Protect parent directory permissions
 - Never commit generated token files to version control
+
+## AWS Secrets Manager
+
+The AWS secret store writes token values to AWS Secrets Manager:
+
+```yaml
+secretStore: aws
+awsSecretName: my-gitlab-token
+awsRegion: us-east-1
+```
+
+### Authentication
+
+The AWS secret store uses the standard AWS credential chain:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`)
+2. Shared credentials file (`~/.aws/credentials`)
+3. IAM role (when running on EC2, ECS, or Lambda)
+
+No additional configuration is required beyond ensuring AWS credentials are available.
+
+### Behavior
+
+- Creates a new secret version on each write
+- The secret must already exist in AWS Secrets Manager
+- Uses the AWS SDK for Go v2
 
 ## None
 
