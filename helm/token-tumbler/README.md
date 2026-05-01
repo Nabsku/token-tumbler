@@ -43,10 +43,10 @@ config:
       rotationThreshold: 3d
       lifetime: 5d
       gracePeriod: 2d
-      secretStore: k8s
-      k8sNamespace: default
-      k8sSecretName: gitlab-token
-      k8sSecretKey: token
+      secretStore: vault
+      vaultMount: kv
+      vaultPath: teams/example/project
+      vaultKey: gitlab_token
 ```
 
 ## Existing Secret keys
@@ -82,6 +82,34 @@ metrics:
 ```
 
 If `networkPolicy.enabled` is true, metrics ingress stays blocked unless `networkPolicy.metricsFrom` allows your monitoring namespace or pods.
+
+Startup and liveness probes use the HTTP `/healthz` endpoint. Keep `metrics.enabled: true` when probes are enabled. Exec probes are not supported by this chart.
+
+## Kubernetes Secret backend RBAC
+
+The `k8s` secret store writes rotated token values into Kubernetes Secrets. The chart does not create that Secret read/write RBAC for you, because target namespaces vary by installation.
+
+If you use `secretStore: k8s`, make sure the service account can read, create, and update the target Secret, and mount the service account token:
+
+```yaml
+serviceAccount:
+  automount: true
+config:
+  repositories:
+    - repoName: group/example-project
+      name: deploy
+      permissions:
+        - api
+      rotationThreshold: 3d
+      lifetime: 5d
+      gracePeriod: 2d
+      secretStore: k8s
+      k8sNamespace: default
+      k8sSecretName: gitlab-token
+      k8sSecretKey: token
+```
+
+For each target namespace, add a Role/RoleBinding that grants `get`, `create`, and `update` on `secrets` to the Token Tumbler service account.
 
 ## Leader election and replica safety
 

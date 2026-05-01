@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: changelog-check
+        name: check generated changelog
+        entry: make changelog-check
+        language: system
+        pass_filenames: false
+        always_run: true

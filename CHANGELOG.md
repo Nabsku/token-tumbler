@@ -9,9 +9,20 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Documentation
 
+- Polish public docs ([ca8c9a5](https://github.com/Nabsku/token-tumbler/commit/ca8c9a56e083a8d05b2df5376d0fd00e5cce6af8))
+## [1.1.0] - 2026-05-01
+
+
+### Documentation
+
 - Fix readme mermaid syntax ([123d994](https://github.com/Nabsku/token-tumbler/commit/123d994bf914024f7ae2dbd07fd70ca55c39b70e))
 
 - Automate changelog generation ([d6c7a26](https://github.com/Nabsku/token-tumbler/commit/d6c7a2613f418fa82ebab9aeef520432a9e49de8))
+
+
+### Features
+
+- Add kubernetes leader election ([d6dcc9d](https://github.com/Nabsku/token-tumbler/commit/d6dcc9d2f4d8a49ea024bd4986cc6e1f85e6721c))
 ## [1.0.2] - 2026-05-01
 
 

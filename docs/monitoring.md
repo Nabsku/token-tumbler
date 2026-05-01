@@ -79,7 +79,7 @@ Counts whether those rollback attempts worked.
 | ------------- | ------------------ |
 | `target_type` | `project`, `group` |
 | `repo_name`   | The repository `name` from config |
-| `outcome`     | `success`, `error` |
+| `outcome`     | `success`, `failure` |
 
 ### `token_tumbler_orphan_tokens_detected_total`
 
@@ -127,7 +127,7 @@ token_tumbler_active_tokens
 
 Rollback errors:
 ```promql
-rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m])
+rate(token_tumbler_token_rollback_outcomes_total{outcome="failure"}[5m])
 ```
 
 Orphan token detections:
@@ -170,7 +170,7 @@ Secret store write failures:
 Rollback failures:
 ```yaml
 - alert: TokenTumblerRollbackFailures
-  expr: rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m]) > 0
+  expr: rate(token_tumbler_token_rollback_outcomes_total{outcome="failure"}[5m]) > 0
   for: 1m
   labels:
     severity: critical

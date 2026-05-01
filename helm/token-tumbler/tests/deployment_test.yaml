@@ -91,3 +91,24 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: autoscaling.maxReplicas must be 1 unless leaderElection.enabled is true
+
+  - it: rejects exec probes
+    set:
+      existingSecret: token-tumbler-env
+      startupProbe:
+        enabled: true
+        useExec: true
+    asserts:
+      - failedTemplate:
+          errorMessage: exec probes are not supported; keep useExec=false and enable metrics for HTTP /healthz probes
+
+  - it: rejects probes when metrics are disabled
+    set:
+      existingSecret: token-tumbler-env
+      metrics:
+        enabled: false
+      livenessProbe:
+        enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: startupProbe/livenessProbe require metrics.enabled=true so /healthz is available

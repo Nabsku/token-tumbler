@@ -4,7 +4,7 @@
 
 - Go 1.26 or newer
 - Docker for E2E tests
-- Optional: `golangci-lint`, `govulncheck`, and `git-cliff`
+- Optional: `golangci-lint`, `govulncheck`, `git-cliff`, and `prek`
 
 ## Setup
 
@@ -12,6 +12,12 @@
 git clone https://github.com/nabsku/token-tumbler.git
 cd token-tumbler
 go mod download
+```
+
+To install the local prek hook that checks `CHANGELOG.md` against `git-cliff` output:
+
+```sh
+make install-hooks
 ```
 
 ## Validation
@@ -50,6 +56,8 @@ make changelog
 ```
 
 Before cutting a release, regenerate the changelog, review it, commit it, then create and push the version tag.
+
+The prek hook runs `make changelog-check`. If it fails, run `make changelog` and include the updated `CHANGELOG.md` in the commit.
 
 ## Pull request checklist
 

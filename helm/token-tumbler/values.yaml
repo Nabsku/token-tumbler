@@ -187,7 +187,7 @@ volumeMounts: []
 
 # -- Startup probe config.
 # When metrics are enabled, probes default to HTTP /healthz on the metrics port.
-# Set useExec: true to force exec probes (e.g. for custom images).
+# Exec probes are not supported by the chart; keep useExec false.
 startupProbe:
   enabled: false
   useExec: false
@@ -197,7 +197,7 @@ startupProbe:
 
 # -- Liveness probe config.
 # When metrics are enabled, probes default to HTTP /healthz on the metrics port.
-# Set useExec: true to force exec probes (e.g. for custom images).
+# Exec probes are not supported by the chart; keep useExec false.
 livenessProbe:
   enabled: false
   useExec: false

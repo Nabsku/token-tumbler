@@ -3,7 +3,7 @@
 [![CI](https://github.com/Nabsku/token-tumbler/actions/workflows/ci.yml/badge.svg)](https://github.com/Nabsku/token-tumbler/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Nabsku/token-tumbler)](https://github.com/Nabsku/token-tumbler/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Go Reference](https://img.shields.io/badge/go-%3E%3D1.24-blue)](./go.mod)
+[![Go Reference](https://img.shields.io/badge/go-%3E%3D1.26-blue)](./go.mod)
 
 Token Tumbler is a small Go daemon for rotating GitLab project and group access tokens without burning the old token too early. It creates the replacement first, stores the new value, and only then cleans up stale tokens.
 
