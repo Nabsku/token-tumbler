@@ -82,6 +82,25 @@ tests:
       - failedTemplate:
           errorMessage: replicaCount must be 1 unless leaderElection.enabled is true
 
+  - it: renders command and args overrides
+    set:
+      existingSecret: token-tumbler-env
+      command:
+        - sh
+      args:
+        - -c
+        - sleep 3600
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].command
+          value:
+            - sh
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - -c
+            - sleep 3600
+
   - it: rejects autoscaling above one replica without leader election
     set:
       existingSecret: token-tumbler-env

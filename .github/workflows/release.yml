@@ -74,24 +74,20 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@v1.12.0
 
-      - name: Create GHCR image pull secret
+      - name: Create test namespace
         run: |
           kubectl create namespace token-tumbler
-          kubectl create secret docker-registry ghcr-auth \
-            --namespace token-tumbler \
-            --docker-server=ghcr.io \
-            --docker-username="${{ github.actor }}" \
-            --docker-password="${{ secrets.GITHUB_TOKEN }}"
 
       - name: Test Helm deployment in kind
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
           helm upgrade --install token-tumbler helm/token-tumbler \
             --namespace token-tumbler \
             --wait \
             --timeout 5m \
-            --set image.tag="$VERSION" \
-            --set 'imagePullSecrets[0].name=ghcr-auth' \
+            --set image.repository=busybox \
+            --set image.tag=1.36 \
+            --set-json command='["sh"]' \
+            --set-json args='["-c","sleep 3600"]' \
             --set env.gitlabToken=dummy-token \
             --set env.gitlabUrl=https://gitlab.example.com
           helm test token-tumbler --namespace token-tumbler --logs

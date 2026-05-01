@@ -252,6 +252,12 @@ metrics:
 # -- Extra environment variables.
 extraEnv: []
 
+# -- Override the container entrypoint.
+command: []
+
+# -- Override the container arguments.
+args: []
+
 # -- Extra environment variables from ConfigMap/Secret sources.
 extraEnvFrom: []
 

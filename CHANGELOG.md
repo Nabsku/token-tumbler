@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [1.1.2] - 2026-05-01
+
+
+### Continuous integration
+
+- Test helm release in kind ([d208a56](https://github.com/Nabsku/token-tumbler/commit/d208a560a38b70b229e2bb4a765670a2a125b90e))
 ## [1.1.1] - 2026-05-01
 
 
