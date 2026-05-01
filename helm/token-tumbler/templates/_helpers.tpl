@@ -24,6 +24,18 @@ If release name contains chart name it will be used as a full name.
 {{- end }}
 
 {{/*
+Validate probe settings. Probes use the HTTP /healthz endpoint.
+*/}}
+{{- define "token-tumbler.validateProbes" -}}
+{{- if or .Values.startupProbe.useExec .Values.livenessProbe.useExec }}
+{{- fail "exec probes are not supported; keep useExec=false and enable metrics for HTTP /healthz probes" }}
+{{- end }}
+{{- if and (not .Values.metrics.enabled) (or .Values.startupProbe.enabled .Values.livenessProbe.enabled) }}
+{{- fail "startupProbe/livenessProbe require metrics.enabled=true so /healthz is available" }}
+{{- end }}
+{{- end }}
+
+{{/*
 Create chart name and version as used by the chart label.
 */}}
 {{- define "token-tumbler.chart" -}}

@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: fmt test vet build check e2e lint vuln tidy diff-check changelog changelog-check helm-test
+.PHONY: fmt test vet build check e2e lint vuln tidy diff-check changelog changelog-check helm-test install-hooks
 
 fmt:
 	$(GO) fmt ./...
@@ -42,3 +42,6 @@ changelog-check:
 	git cliff --config cliff.toml --output /tmp/token-tumbler-CHANGELOG.md
 	python3 -c 'from pathlib import Path; p=Path("/tmp/token-tumbler-CHANGELOG.md"); p.write_text(p.read_text().rstrip() + "\n")'
 	diff -u CHANGELOG.md /tmp/token-tumbler-CHANGELOG.md
+
+install-hooks:
+	prek install

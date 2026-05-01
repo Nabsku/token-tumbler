@@ -1,4 +1,5 @@
 {{- include "token-tumbler.validateReplicaSafety" . -}}
+{{- include "token-tumbler.validateProbes" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -141,32 +142,18 @@ spec:
             {{- end }}
           {{- if .Values.startupProbe.enabled }}
           startupProbe:
-            {{- if and .Values.metrics.enabled (not .Values.startupProbe.useExec) }}
             httpGet:
               path: /healthz
               port: metrics
-            {{- else }}
-            exec:
-              command:
-                - /token-tumbler
-                - --version
-            {{- end }}
             initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.startupProbe.periodSeconds }}
             failureThreshold: {{ .Values.startupProbe.failureThreshold }}
           {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
-            {{- if and .Values.metrics.enabled (not .Values.livenessProbe.useExec) }}
             httpGet:
               path: /healthz
               port: metrics
-            {{- else }}
-            exec:
-              command:
-                - /token-tumbler
-                - --version
-            {{- end }}
             initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
             failureThreshold: {{ .Values.livenessProbe.failureThreshold }}

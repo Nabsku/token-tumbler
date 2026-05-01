@@ -35,6 +35,7 @@ make check
 | `make tidy`  | Tidy Go modules.                                    |
 | `make changelog` | Regenerate `CHANGELOG.md` with `git-cliff`.     |
 | `make changelog-check` | Verify `CHANGELOG.md` matches `git-cliff` output. |
+| `make install-hooks` | Install the local prek hooks. |
 
 ## Changelog generation
 
@@ -54,6 +55,8 @@ Use conventional commit prefixes so the changelog groups entries sensibly:
 - `chore:` for maintenance
 
 Before publishing a release, regenerate and commit `CHANGELOG.md`, then create and push the release tag.
+
+The prek hook runs `make changelog-check`. If the hook fails, run `make changelog` and include the updated `CHANGELOG.md` in your commit.
 
 ## E2E tests
 
