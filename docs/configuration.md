@@ -1,6 +1,6 @@
-# Configuration Reference
+# Configuration reference
 
-Token Tumbler uses a single declarative YAML file (`config.yaml`) to define all token rotation targets.
+Token Tumbler uses one YAML file, `config.yaml`, for every token rotation target.
 
 ## Example
 
@@ -25,11 +25,11 @@ repositories:
 | Field          | Required | Description                                                                              |
 | -------------- | -------- | ---------------------------------------------------------------------------------------- |
 | `prefix`       | Yes      | Prefix for generated GitLab token names. Allowed characters: letters, numbers, `-`, `_`. |
-| `repositories` | Yes      | Non-empty list of project or group token targets.                                        |
+| `repositories` | Yes      | One or more project or group token targets.                                              |
 
 ## Repository fields
 
-Each entry must define exactly one target (`repoName` or `groupName`):
+Each entry must define one target: either `repoName` or `groupName`.
 
 | Field               | Required                         | Description                                                                          |
 | ------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
@@ -38,9 +38,9 @@ Each entry must define exactly one target (`repoName` or `groupName`):
 | `name`              | Yes                              | Logical token name used in generated GitLab token names.                             |
 | `permissions`       | Yes                              | GitLab token scopes, such as `api`.                                                  |
 | `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
-| `lifetime`          | Yes                              | Maximum lifetime for newly-created tokens. Must be greater than `rotationThreshold`. |
+| `lifetime`          | Yes                              | Maximum lifetime for new tokens. Must be greater than `rotationThreshold`.           |
 | `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
-| `secretStore`       | Yes                              | `vault`, `file`, `aws`, `k8s`, or `none`. Use `none` only for intentional no-persistence runs. |
+| `secretStore`       | Yes                              | `vault`, `file`, `aws`, `k8s`, or `none`. Use `none` only when something else captures the token. |
 | `vaultMount`        | For Vault                        | Vault KVv2 mount name.                                                               |
 | `vaultPath`         | For Vault                        | Vault KVv2 secret path.                                                              |
 | `vaultKey`          | For Vault                        | Key inside the KVv2 secret data to write.                                            |
@@ -57,7 +57,7 @@ Each entry must define exactly one target (`repoName` or `groupName`):
 
 Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
 
-This custom duration syntax applies to YAML config fields such as `rotationThreshold`, `lifetime`, and `gracePeriod`. The `TOKEN_TUMBLER_INTERVAL` environment variable uses Go duration syntax instead, so use values like `30s`, `5m`, or `1h` there.
+This duration syntax applies to YAML fields such as `rotationThreshold`, `lifetime`, and `gracePeriod`. `TOKEN_TUMBLER_INTERVAL` uses Go duration syntax instead, so use values like `30s`, `5m`, or `1h` there.
 
 Examples:
 
@@ -70,7 +70,7 @@ Examples:
 
 ## Uniqueness rules
 
-Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. This prevents two config entries from creating or cleaning up the same logical GitLab token.
+Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. That keeps two config entries from managing the same GitLab token family.
 
 ## Environment variables
 
@@ -92,11 +92,11 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
 | `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
 
-Leader election is intended for Kubernetes deployments with more than one replica. It requires in-cluster Kubernetes credentials that can get, list, watch, create, update, and patch `coordination.k8s.io` Lease objects in the configured namespace.
+Use leader election for Kubernetes deployments with more than one replica. It needs in-cluster Kubernetes credentials that can get, list, watch, create, update, and patch `coordination.k8s.io` Lease objects in the configured namespace.
 
 ## Validation
 
-The daemon validates configuration on startup and fails fast if:
+The daemon validates configuration on startup and exits if:
 
 - The prefix contains invalid characters
 - No repositories are defined

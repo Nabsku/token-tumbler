@@ -1,24 +1,24 @@
-# Security Policy
+# Security policy
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-Please report suspected vulnerabilities privately. Do not open a public issue with exploit details, real tokens, Vault paths, GitLab project names, Kubernetes Secret names, AWS account details, or production configuration.
+Please report suspected vulnerabilities privately. Do not open a public issue with exploit details, real tokens, Vault paths, GitLab project names, Kubernetes Secret names, AWS account details, or production config.
 
 Use GitHub private vulnerability reporting when available:
 
 <https://github.com/Nabsku/token-tumbler/security/advisories/new>
 
-If that channel is unavailable, open a public issue without sensitive details and ask for a private maintainer contact. Include:
+If that channel is unavailable, open a public issue without sensitive details and ask for a private maintainer contact. Include this much, and no more:
 
 - A short description of the issue and affected versions or commits.
-- Steps to reproduce with sanitized examples only.
-- The expected impact and any known mitigations.
+- Reproduction steps with sanitized examples only.
+- Expected impact and any known mitigations.
 
-We aim to acknowledge reports within 7 days, provide an initial assessment within 14 days, and coordinate a fix before public disclosure when the report is valid.
+We try to acknowledge reports within 7 days, give an initial assessment within 14 days, and coordinate a fix before public disclosure when the report is valid.
 
-## Sensitive Data Guidance
+## Sensitive data
 
-Token Tumbler manages GitLab access tokens and writes them to secret stores. When sharing logs, configs, screenshots, or bug reports, redact:
+Token Tumbler manages GitLab access tokens and writes them to secret stores. Before sharing logs, configs, screenshots, or bug reports, redact:
 
 - GitLab personal, project, and group access tokens.
 - Vault tokens, AppRole IDs/secrets, mount names, and secret paths.
@@ -26,9 +26,9 @@ Token Tumbler manages GitLab access tokens and writes them to secret stores. Whe
 - Kubernetes namespaces, Secret names, and service account tokens.
 - Private GitLab group/project paths.
 
-## Supported Versions
+## Supported versions
 
-Security fixes are published through GitHub Releases. Users should run the latest released version unless a maintainer explicitly recommends otherwise.
+Security fixes ship through GitHub Releases. Run the latest release unless a maintainer says otherwise.
 
 | Version | Supported |
 | --- | --- |

@@ -5,21 +5,21 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Go Reference](https://img.shields.io/badge/go-%3E%3D1.24-blue)](./go.mod)
 
-Token Tumbler is a small Go daemon for safely rotating GitLab project and group access tokens. It creates replacement tokens before expiry, writes newly-created token values to a configured secret store, and only revokes older tokens after persistence succeeds.
+Token Tumbler is a small Go daemon for rotating GitLab project and group access tokens without burning the old token too early. It creates the replacement first, stores the new value, and only then cleans up stale tokens.
 
-It supports GitLab project/group access tokens and multiple secret stores: Vault KVv2 (with several auth methods), AWS Secrets Manager, Kubernetes Secrets, local file, or none.
+It works with GitLab project and group access tokens. New token values can go to Vault KVv2, AWS Secrets Manager, Kubernetes Secrets, a local file, or nowhere at all if another process handles persistence.
 
-## Why Token Tumbler?
+## Why use it?
 
-- **Automated rotation** for GitLab project and group access tokens
-- **Fail-closed secret handling** so token cleanup does not happen unless the new secret is safely stored
-- **Multiple secret stores** — Vault KVv2 (AppRole, token, Kubernetes, AWS IAM), AWS Secrets Manager, Kubernetes Secrets, local file, or none
-- **Merge-friendly writes** — existing secret data is preserved when updating Vault or Kubernetes secrets
-- **Project and group targets** from one declarative YAML config
-- **Grace-period cleanup** to keep the newest token alive while retiring stale tokens
-- **Prometheus metrics** with token rotation counters, duration histograms, and a /healthz endpoint
-- **Daemon mode** with a configurable polling interval and graceful shutdown
-- **E2E coverage** with Testcontainers-backed GitLab and Vault
+- Rotates GitLab project and group access tokens on a schedule.
+- Fails closed: if the new token cannot be stored, old tokens stay alive.
+- Writes to Vault KVv2, AWS Secrets Manager, Kubernetes Secrets, a local file, or `none`.
+- Preserves unrelated keys when it updates Vault or Kubernetes secrets.
+- Manages project and group targets from one YAML file.
+- Keeps the newest token, then removes stale prefixed tokens after the grace period.
+- Exposes Prometheus metrics and `/healthz`.
+- Runs as a daemon with graceful shutdown.
+- Has E2E tests backed by Testcontainers GitLab and Vault.
 
 ## Architecture
 
@@ -49,7 +49,7 @@ flowchart LR
     Cleanup --> GitLab
 ```
 
-See [docs/architecture.md](docs/architecture.md) for the rotation flow and safety model details.
+See [docs/architecture.md](docs/architecture.md) for the rotation flow and the safety rules.
 
 ## Quick start
 
@@ -59,7 +59,7 @@ Create `config.yaml` from the example:
 cp config.example.yaml config.yaml
 ```
 
-Then edit the targets and secret-store paths for your environment:
+Then edit the targets and secret store paths for your environment:
 
 ```yaml
 prefix: tt-
@@ -108,7 +108,7 @@ export VAULT_K8S_TOKEN_PATH="/var/run/secrets/..."  # optional
 
 ## Install and deploy
 
-Token Tumbler reads `config.yaml` from the current working directory or, for the published container image, from `/config.yaml`.
+Token Tumbler reads `config.yaml` from the current working directory. The published container image expects it at `/config.yaml`.
 
 ### Release binary
 
@@ -143,7 +143,18 @@ docker compose up
 
 ### Helm
 
-The Kubernetes chart lives in [`helm/token-tumbler`](helm/token-tumbler). Keep `replicaCount: 1` unless you add leader election or another external lock.
+Release tags publish the Helm chart as an OCI artifact in GitHub Container Registry. The chart source lives in [`helm/token-tumbler`](helm/token-tumbler).
+
+Install the published chart:
+
+```sh
+helm install token-tumbler oci://ghcr.io/nabsku/charts/token-tumbler \
+  --version <version> \
+  --set env.gitlabUrl="https://gitlab.example.com" \
+  --set env.gitlabToken="glpat-..."
+```
+
+Or install from a local checkout:
 
 ```sh
 helm install token-tumbler ./helm/token-tumbler \
@@ -151,7 +162,7 @@ helm install token-tumbler ./helm/token-tumbler \
   --set env.gitlabToken="glpat-..."
 ```
 
-For production, prefer `existingSecret` or an external secrets operator instead of passing secrets with `--set`. Enable Helm `leaderElection.enabled` before running more than one replica. See the [Helm chart README](helm/token-tumbler/README.md).
+For production, use `existingSecret` or an external secrets operator instead of passing secrets with `--set`. Keep `replicaCount: 1` unless `leaderElection.enabled=true`. The chart refuses to render unsafe multi-replica settings without leader election. See the [Helm chart README](helm/token-tumbler/README.md).
 
 ## Environment variables
 
@@ -173,15 +184,15 @@ For production, prefer `existingSecret` or an external secrets operator instead 
 | `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
 | `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
 
-Config durations like `rotationThreshold`, `lifetime`, and `gracePeriod` support `s`, `m`, `h`, `d`, `w`, and `M`. `TOKEN_TUMBLER_INTERVAL` is different: it uses Go's `time.ParseDuration`, so use `s`, `m`, or `h`.
+Config durations such as `rotationThreshold`, `lifetime`, and `gracePeriod` support `s`, `m`, `h`, `d`, `w`, and `M`. `TOKEN_TUMBLER_INTERVAL` is different because it uses Go's `time.ParseDuration`; use `s`, `m`, or `h` there.
 
 ## Documentation
 
-- **[Configuration](docs/configuration.md)** - Full configuration reference with all fields, validation rules, and examples
-- **[Secret Stores](docs/secret-stores.md)** - Detailed docs for Vault, AWS, Kubernetes, file store, and `none`
-- **[Monitoring](docs/monitoring.md)** - Prometheus metrics, PromQL queries, and alerting examples
-- **[Development](docs/development.md)** - Running tests, E2E suite, Makefile targets, and contributing guidelines
-- **[Helm Chart](helm/token-tumbler/README.md)** - Kubernetes install, values, metrics, and production notes
+- [Configuration](docs/configuration.md) - config fields, validation rules, and examples
+- [Secret stores](docs/secret-stores.md) - Vault, AWS, Kubernetes, file store, and `none`
+- [Monitoring](docs/monitoring.md) - Prometheus metrics, PromQL queries, and alert examples
+- [Development](docs/development.md) - tests, the E2E suite, Makefile targets, and contributing notes
+- [Helm chart](helm/token-tumbler/README.md) - Kubernetes install, values, metrics, and replica safety
 
 ## Token naming
 
@@ -197,7 +208,7 @@ For example:
 tt-deploy-2026-04-29T12:00:00Z
 ```
 
-`prefix` is normalized, so `tt` and `tt-` behave as the same prefix family for matching and cleanup.
+`prefix` is normalized. `tt` and `tt-` belong to the same prefix family for matching and cleanup.
 
 ## License
 

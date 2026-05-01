@@ -1,10 +1,10 @@
 # Monitoring
 
-Token Tumbler exposes Prometheus metrics and a health endpoint for observability.
+Token Tumbler exposes Prometheus metrics and a health endpoint.
 
-## Metrics Endpoint
+## Metrics endpoint
 
-Token Tumbler starts an HTTP server on `:9090` by default (configurable via `TOKEN_TUMBLER_METRICS_ADDR`).
+By default, Token Tumbler starts an HTTP server on `:9090`. Set `TOKEN_TUMBLER_METRICS_ADDR` to use another address.
 
 ### Endpoints
 
@@ -13,19 +13,19 @@ Token Tumbler starts an HTTP server on `:9090` by default (configurable via `TOK
 | `/metrics` | Prometheus metrics in exposition format               |
 | `/healthz` | Health check; returns `200 OK` with body `ok`         |
 
-### Environment Variables
+### Environment variables
 
 | Variable                    | Default | Description                          |
 | --------------------------- | ------- | ------------------------------------ |
 | `TOKEN_TUMBLER_METRICS_ADDR`| `:9090` | Listen address for the HTTP server   |
 
-## Prometheus Metrics
+## Prometheus metrics
 
 All metrics use the `token_tumbler_` prefix.
 
 ### `token_tumbler_token_rotations_total`
 
-Counter of token rotation attempts, labeled by target type, repository name, secret store, and outcome.
+Counts token rotation attempts by target type, repository name, secret store, and outcome.
 
 | Label         | Values                                      |
 | ------------- | ------------------------------------------- |
@@ -36,7 +36,7 @@ Counter of token rotation attempts, labeled by target type, repository name, sec
 
 ### `token_tumbler_token_rotation_duration_seconds`
 
-Histogram of token rotation operation durations.
+Histogram for token rotation duration.
 
 | Label         | Values                            |
 | ------------- | --------------------------------- |
@@ -45,7 +45,7 @@ Histogram of token rotation operation durations.
 
 ### `token_tumbler_secret_store_operations_total`
 
-Counter of secret store write operations.
+Counts secret store writes.
 
 | Label        | Values                                |
 | ------------ | ------------------------------------- |
@@ -55,7 +55,7 @@ Counter of secret store write operations.
 
 ### `token_tumbler_active_tokens`
 
-Gauge of active tokens found per repository at the start of each poll cycle.
+Number of active tokens found for each target at the start of a poll cycle.
 
 | Label         | Values                            |
 | ------------- | --------------------------------- |
@@ -64,7 +64,7 @@ Gauge of active tokens found per repository at the start of each poll cycle.
 
 ### `token_tumbler_token_rollback_attempts_total`
 
-Counter of rollback attempts after a replacement token was created but secret persistence failed.
+Counts rollback attempts after Token Tumbler created a replacement token but failed to store it.
 
 | Label         | Values             |
 | ------------- | ------------------ |
@@ -73,7 +73,7 @@ Counter of rollback attempts after a replacement token was created but secret pe
 
 ### `token_tumbler_token_rollback_outcomes_total`
 
-Counter of rollback outcomes after failed secret persistence.
+Counts whether those rollback attempts worked.
 
 | Label         | Values             |
 | ------------- | ------------------ |
@@ -83,7 +83,7 @@ Counter of rollback outcomes after failed secret persistence.
 
 ### `token_tumbler_orphan_tokens_detected_total`
 
-Counter of cases where Token Tumbler detected a newer GitLab token than the token currently persisted in Vault.
+Counts cases where GitLab has a newer token than the one currently stored in Vault.
 
 | Label         | Values             |
 | ------------- | ------------------ |
@@ -92,57 +92,57 @@ Counter of cases where Token Tumbler detected a newer GitLab token than the toke
 
 ### `token_tumbler_cleanup_skipped_total`
 
-Counter of cleanup passes skipped because Vault metadata could not be read safely.
+Counts cleanup passes skipped because Vault metadata could not be read safely.
 
 | Label         | Values             |
 | ------------- | ------------------ |
 | `target_type` | `project`, `group` |
 | `repo_name`   | The repository `name` from config |
 
-## Example Prometheus Queries
+## Prometheus query examples
 
-**Rotation success rate over the last hour:**
+Rotation success rate over the last hour:
 ```promql
 sum(rate(token_tumbler_token_rotations_total{outcome="success"}[1h]))
 /
 sum(rate(token_tumbler_token_rotations_total[1h]))
 ```
 
-**Average rotation duration:**
+Average rotation duration:
 ```promql
 histogram_quantile(0.95,
   rate(token_tumbler_token_rotation_duration_seconds_bucket[5m])
 )
 ```
 
-**Failed secret store writes:**
+Failed secret store writes:
 ```promql
 rate(token_tumbler_secret_store_operations_total{outcome="error"}[5m])
 ```
 
-**Active tokens per repository:**
+Active tokens per target:
 ```promql
 token_tumbler_active_tokens
 ```
 
-**Rollback errors:**
+Rollback errors:
 ```promql
 rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m])
 ```
 
-**Orphan token detections:**
+Orphan token detections:
 ```promql
 increase(token_tumbler_orphan_tokens_detected_total[1h])
 ```
 
-**Skipped cleanup:**
+Skipped cleanup:
 ```promql
 increase(token_tumbler_cleanup_skipped_total[1h])
 ```
 
-## Alerting Examples
+## Alert examples
 
-**High rotation failure rate:**
+High rotation failure rate:
 ```yaml
 - alert: TokenTumblerRotationFailures
   expr: |
@@ -156,7 +156,7 @@ increase(token_tumbler_cleanup_skipped_total[1h])
     summary: "Token Tumbler rotation failure rate is high"
 ```
 
-**Secret store write failures:**
+Secret store write failures:
 ```yaml
 - alert: TokenTumblerSecretStoreFailures
   expr: rate(token_tumbler_secret_store_operations_total{outcome="error"}[5m]) > 0
@@ -167,7 +167,7 @@ increase(token_tumbler_cleanup_skipped_total[1h])
     summary: "Token Tumbler is failing to write secrets"
 ```
 
-**Rollback failures:**
+Rollback failures:
 ```yaml
 - alert: TokenTumblerRollbackFailures
   expr: rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m]) > 0
@@ -178,7 +178,7 @@ increase(token_tumbler_cleanup_skipped_total[1h])
     summary: "Token Tumbler failed to roll back a token after secret persistence failed"
 ```
 
-**Cleanup skipped:**
+Cleanup skipped:
 ```yaml
 - alert: TokenTumblerCleanupSkipped
   expr: increase(token_tumbler_cleanup_skipped_total[30m]) > 0
@@ -189,9 +189,9 @@ increase(token_tumbler_cleanup_skipped_total[1h])
     summary: "Token Tumbler skipped old-token cleanup because secret metadata was unavailable"
 ```
 
-## Kubernetes Setup
+## Kubernetes setup
 
-When running in Kubernetes, the metrics server listens on the pod IP. Add a `ServiceMonitor` or `PodMonitor` to scrape metrics:
+In Kubernetes, the metrics server listens on the pod IP. Add a `ServiceMonitor` or `PodMonitor` to scrape it:
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1
@@ -210,7 +210,7 @@ spec:
       interval: 30s
 ```
 
-Ensure the service exposes the metrics port:
+Make sure the service exposes the metrics port:
 
 ```yaml
 apiVersion: v1

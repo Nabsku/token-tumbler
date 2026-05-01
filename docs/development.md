@@ -38,13 +38,13 @@ make check
 
 ## Changelog generation
 
-`CHANGELOG.md` is generated from conventional commits using [`git-cliff`](https://git-cliff.org/). Install `git-cliff`, then run:
+`CHANGELOG.md` is generated from conventional commits with [`git-cliff`](https://git-cliff.org/). Install `git-cliff`, then run:
 
 ```sh
 make changelog
 ```
 
-Use conventional commit prefixes for useful grouping:
+Use conventional commit prefixes so the changelog groups entries sensibly:
 
 - `feat:` for user-facing features
 - `fix:` for bug fixes
@@ -70,6 +70,6 @@ Optional E2E image overrides:
 
 ## Contributing
 
-Contributions are welcome. Please run `make check` before opening a pull request and avoid committing real GitLab tokens, Vault credentials, secret-store paths, private target names, or production config files.
+Contributions are welcome. Run `make check` before opening a pull request, and do not commit real GitLab tokens, Vault credentials, secret store paths, private target names, or production config files.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md).

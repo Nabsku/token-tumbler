@@ -44,9 +44,9 @@ flowchart TD
     Delete --> Preserve[Always preserve newest token]
 ```
 
-Token Tumbler is deliberately conservative:
+Token Tumbler is intentionally conservative:
 
-- Generated GitLab token values are only available at creation time, so the secret write must succeed before old tokens are revoked.
+- GitLab only shows a generated token value once, so the secret write must succeed before old tokens are revoked.
 - Unsupported or missing secret stores fail closed.
 - Cleanup only revokes prefixed, active, non-revoked tokens older than the configured grace period.
 - The newest matching token is never revoked.
@@ -55,9 +55,9 @@ Token Tumbler is deliberately conservative:
 
 ## Observability
 
-Token Tumbler exposes Prometheus metrics on a configurable HTTP endpoint (default `:9090`):
+Token Tumbler exposes Prometheus metrics on a configurable HTTP endpoint. The default is `:9090`.
 
-- `/metrics` — Prometheus metrics including token rotation counters, duration histograms, and secret store operation counters
-- `/healthz` — Health check endpoint
+- `/metrics` - Prometheus metrics, including rotation counters, duration histograms, and secret store operation counters
+- `/healthz` - health check endpoint
 
-See [monitoring.md](monitoring.md) for metric names, PromQL queries, and alerting examples.
+See [monitoring.md](monitoring.md) for metric names, PromQL queries, and alert examples.
