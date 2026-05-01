@@ -1,24 +1,24 @@
-# Secret Stores
+# Secret stores
 
-Token Tumbler supports five secret store backends for persisting generated GitLab token values.
+Token Tumbler can store generated GitLab token values in five places.
 
 ## Overview
 
 | Store   | Description                                                                                                                                                                   |
 | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged so unrelated keys are preserved. |
+| `vault` | Writes the token value to Vault KVv2. Supports AppRole (default), direct token, Kubernetes, and AWS IAM auth. Existing secret data is merged, so unrelated keys stay in place. |
 | `file`  | Writes the token value to a local file using an atomic same-directory rename and `0600` permissions. The parent directory must already exist.                                 |
 | `aws`   | Writes the token value to AWS Secrets Manager. Uses the standard AWS credential chain.                                                                                        |
 | `k8s`   | Writes the token value to a Kubernetes Secret. Uses in-cluster config or kubeconfig. Other keys in the secret are preserved.                                                  |
-| `none`  | Does not persist the generated token. Use only when external persistence is intentionally handled elsewhere.                                                                  |
+| `none`  | Does not persist the generated token. Use it only when something else captures the value.                                                                                    |
 
 ## Vault
 
-The Vault secret store writes token values to HashiCorp Vault KVv2. It supports multiple authentication methods.
+The Vault secret store writes token values to HashiCorp Vault KVv2. It supports several auth methods.
 
 ### AppRole (default)
 
-The default auth method. Requires AppRole credentials:
+This is the default auth method. It needs AppRole credentials:
 
 ```yaml
 secretStore: vault
@@ -81,15 +81,15 @@ vaultPath: teams/example/project
 vaultKey: gitlab_token
 ```
 
-No additional environment variables are required. The AWS auth method uses the standard AWS credential chain (environment variables, IAM instance profile, etc.).
+No extra environment variables are required. The AWS auth method uses the standard AWS credential chain, including environment variables and IAM instance profiles.
 
 ### Merge behavior
 
-All Vault writes use KVv2 and merge the new token value into existing secret data. Unrelated keys in the secret are preserved. Only the configured `vaultKey` is overwritten.
+All Vault writes use KVv2 and merge the new token value into the existing secret data. Unrelated keys stay in place. Only the configured `vaultKey` is overwritten.
 
 ## File
 
-The file secret store writes token values to a local file with atomic operations:
+The file secret store writes token values to a local file atomically:
 
 ```yaml
 secretStore: file
@@ -99,10 +99,10 @@ filePath: /run/secrets/gitlab-token
 ### Security considerations
 
 - Files are created with `0600` permissions (owner read/write only)
-- Writes are atomic: a temporary file is created in the same directory, then renamed over the target
+- Writes are atomic: Token Tumbler creates a temporary file in the same directory, then renames it over the target
 - The parent directory must already exist
 - File storage is only as safe as the host filesystem
-- Prefer tmpfs or encrypted disks where appropriate
+- Prefer tmpfs or encrypted disks when they fit your setup
 - Protect parent directory permissions
 - Never commit generated token files to version control
 
@@ -124,7 +124,7 @@ The AWS secret store uses the standard AWS credential chain:
 2. Shared credentials file (`~/.aws/credentials`)
 3. IAM role (when running on EC2, ECS, or Lambda)
 
-No additional configuration is required beyond ensuring AWS credentials are available.
+No extra config is required beyond working AWS credentials.
 
 ### Behavior
 
@@ -134,7 +134,7 @@ No additional configuration is required beyond ensuring AWS credentials are avai
 
 ## Kubernetes Secrets
 
-The Kubernetes secret store writes token values to a Kubernetes Secret in a specified namespace:
+The Kubernetes secret store writes token values to a Kubernetes Secret in a namespace:
 
 ```yaml
 secretStore: k8s
@@ -145,12 +145,12 @@ k8sSecretKey: token
 
 ### Authentication
 
-The Kubernetes secret store automatically detects the execution environment:
+The Kubernetes secret store detects where it is running:
 
-1. **In-cluster**: Uses the service account token mounted at `/var/run/secrets/kubernetes.io/serviceaccount/token`
-2. **Outside cluster**: Loads kubeconfig from the default location (`~/.kube/config`) or via the `KUBECONFIG` environment variable
+1. In-cluster: uses the service account token mounted at `/var/run/secrets/kubernetes.io/serviceaccount/token`
+2. Outside the cluster: loads kubeconfig from `~/.kube/config` or the `KUBECONFIG` environment variable
 
-No additional configuration is required when running inside a Kubernetes pod with appropriate RBAC.
+No extra config is required inside a Kubernetes pod with the right RBAC.
 
 ### RBAC
 
@@ -185,22 +185,22 @@ roleRef:
 ### Behavior
 
 - Creates the secret if it does not exist
-- Merges the token value into existing secret data; other keys are preserved
+- Merges the token value into existing secret data; other keys stay in place
 - Uses the `Opaque` secret type
 - Requires `k8sNamespace`, `k8sSecretName`, and `k8sSecretKey`
 
 ## None
 
-Use `none` when Token Tumbler should create/renew tokens but not persist the values:
+Use `none` when Token Tumbler should create or renew tokens but not persist the values:
 
 ```yaml
 secretStore: none
 ```
 
-This is useful when:
+This can make sense when:
 
 - External tooling handles secret persistence
 - You want to test token creation without writing secrets
 - Tokens are consumed immediately by another process
 
-**Warning**: With `secretStore: none`, the daemon cannot recover token values after creation. Ensure you have another mechanism to capture the token if needed.
+Warning: with `secretStore: none`, the daemon cannot recover token values after creation. Make sure another process captures the token if you need it later.

@@ -1,6 +1,6 @@
 # token-tumbler Helm chart
 
-This chart deploys Token Tumbler as a Kubernetes worker for rotating GitLab project and group access tokens.
+This chart runs Token Tumbler as a Kubernetes worker that rotates GitLab project and group access tokens.
 
 ## Install
 
@@ -12,7 +12,7 @@ helm install token-tumbler ./helm/token-tumbler \
   --set env.gitlabToken="glpat-..."
 ```
 
-For production, do not pass secrets with `--set`. Create a Kubernetes Secret or use an external secrets operator, then set `existingSecret`.
+For production, avoid passing secrets with `--set`. Create a Kubernetes Secret, or use an external secrets operator, and point the chart at it with `existingSecret`.
 
 ```sh
 kubectl create secret generic token-tumbler-env \
@@ -26,7 +26,7 @@ helm install token-tumbler ./helm/token-tumbler \
 
 ## Required values
 
-At minimum, set GitLab credentials and at least one managed target under `config.repositories`.
+At minimum, set GitLab credentials and one managed target under `config.repositories`.
 
 ```yaml
 env:
@@ -51,7 +51,7 @@ config:
 
 ## Existing Secret keys
 
-When `existingSecret` is set, the chart reads environment variables from that Secret. Supported keys are:
+When `existingSecret` is set, the chart reads environment variables from that Secret. These keys are supported:
 
 | Key | When needed |
 | --- | --- |
@@ -70,7 +70,7 @@ Metrics are enabled by default on port `9090` and expose:
 - `GET /metrics`
 - `GET /healthz`
 
-Enable `metrics.serviceMonitor.enabled` when using the Prometheus Operator.
+If you use the Prometheus Operator, enable `metrics.serviceMonitor.enabled`.
 
 ```yaml
 metrics:
@@ -81,13 +81,13 @@ metrics:
     enabled: true
 ```
 
-If `networkPolicy.enabled` is true, metrics ingress remains denied unless `networkPolicy.metricsFrom` allows your monitoring namespace or pods.
+If `networkPolicy.enabled` is true, metrics ingress stays blocked unless `networkPolicy.metricsFrom` allows your monitoring namespace or pods.
 
 ## Leader election and replica safety
 
-Keep `replicaCount: 1` unless `leaderElection.enabled` is true. When enabled, Token Tumbler uses a Kubernetes `Lease` so only the elected pod runs token rotations.
+Keep `replicaCount: 1` unless `leaderElection.enabled` is true. With leader election enabled, Token Tumbler uses a Kubernetes `Lease`; only the elected pod rotates tokens.
 
-The chart fails rendering if `replicaCount > 1` or `autoscaling.maxReplicas > 1` while leader election is disabled.
+The chart fails to render if `replicaCount > 1` or `autoscaling.maxReplicas > 1` while leader election is disabled.
 
 ```yaml
 replicaCount: 2
@@ -97,12 +97,12 @@ autoscaling:
   enabled: true
 ```
 
-Leader election requires in-cluster Kubernetes credentials. The chart automatically mounts the service account token and creates namespace-scoped Lease RBAC when `leaderElection.enabled` and `leaderElection.rbac.create` are true.
+Leader election needs in-cluster Kubernetes credentials. When `leaderElection.enabled` and `leaderElection.rbac.create` are true, the chart mounts the service account token and creates namespace-scoped Lease RBAC.
 
 ## NetworkPolicy
 
-`networkPolicy.enabled` defaults to false. When enabled, the default egress allows DNS, HTTP, and HTTPS so the worker can reach GitLab, Vault, AWS, or Kubernetes APIs. Tighten these rules for your cluster once you know the required destinations.
+`networkPolicy.enabled` defaults to false. When you enable it, the default egress allows DNS, HTTP, and HTTPS so the worker can reach GitLab, Vault, AWS, or Kubernetes APIs. Tighten those rules once you know the exact destinations in your cluster.
 
 ## Values reference
 
-See [`values.yaml`](values.yaml) for the full set of supported values and inline comments.
+See [`values.yaml`](values.yaml) for all supported values and inline comments.

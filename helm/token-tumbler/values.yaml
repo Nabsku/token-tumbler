@@ -1,8 +1,6 @@
-# Default values for token-tumbler.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Defaults for token-tumbler.
 
-# -- Number of replicas to run. Chart rendering fails above 1 unless leaderElection.enabled is true.
+# -- Number of replicas to run. Rendering fails above 1 unless leaderElection.enabled is true.
 replicaCount: 1
 
 image:
@@ -10,7 +8,7 @@ image:
   repository: ghcr.io/nabsku/token-tumbler
   # -- Image pull policy.
   pullPolicy: IfNotPresent
-  # -- Overrides the image tag whose default is the chart appVersion.
+  # -- Image tag override. Defaults to the chart appVersion.
   tag: ""
 
 # -- Image pull secrets for private registries.
@@ -45,12 +43,12 @@ securityContext:
     drop:
       - ALL
 
-# -- Application configuration (rendered into config.yaml).
-# Refer to the application documentation for the full schema.
+# -- Application config rendered into config.yaml.
+# See the application docs for the full schema.
 config:
   # -- Prefix for token names.
   prefix: tt-
-  # -- List of repositories/groups to manage tokens for.
+  # -- Repositories or groups whose tokens should be managed.
   repositories: []
     # - groupName: group/example-group
     #   name: test
@@ -64,10 +62,10 @@ config:
     #   vaultKey: gitlab_token
     #   vaultMount: kv
 
-# -- Environment variables injected into the container.
+# -- Environment variables for the container.
 env:
   # -- GitLab personal access token (required).
-  # Prefer setting via existingSecret or external secrets operator.
+  # Prefer existingSecret or an external secrets operator.
   gitlabToken: ""
   # -- GitLab base URL (required).
   gitlabUrl: ""
@@ -75,22 +73,22 @@ env:
   tokenTumblerInterval: "5m"
   # -- Vault AppRole ID (required when Vault secret store is used).
   approleId: ""
-  # -- Vault AppRole Secret (required when Vault secret store is used).
+  # -- Vault AppRole secret (required when Vault secret store is used).
   approleSecret: ""
   # -- Vault token (required when using vaultAuthMethod: token).
   vaultToken: ""
   # -- Optional service account token path override for vaultAuthMethod: kubernetes.
   vaultK8sTokenPath: ""
 
-# -- Use an existing secret instead of creating one from .Values.env.
+# -- Use an existing Secret instead of creating one from .Values.env.
 # The secret can contain the keys: GITLAB_TOKEN, GITLAB_URL, TOKEN_TUMBLER_INTERVAL,
 # APPROLE_ID, APPROLE_SECRET, VAULT_TOKEN, VAULT_K8S_TOKEN_PATH.
 existingSecret: ""
 
 serviceAccount:
-  # -- Specifies whether a service account should be created.
+  # -- Create a service account.
   create: true
-  # -- Automatically mount a ServiceAccount's API credentials?
+  # -- Mount service account API credentials.
   automount: false
   # -- Annotations to add to the service account.
   annotations: {}
@@ -118,7 +116,7 @@ affinity: {}
 # -- Topology spread constraints for pod distribution.
 topologySpreadConstraints: []
 
-# -- Horizontal Pod Autoscaler configuration.
+# -- Horizontal Pod Autoscaler config.
 # Rendering fails when maxReplicas is above 1 unless leaderElection.enabled is true.
 autoscaling:
   enabled: false
@@ -128,7 +126,7 @@ autoscaling:
   targetMemoryUtilizationPercentage: 80
   behavior: {}
 
-# -- Kubernetes leader election using coordination.k8s.io Lease objects.
+# -- Kubernetes leader election with coordination.k8s.io Lease objects.
 # Enable before running more than one replica.
 leaderElection:
   enabled: false
@@ -144,16 +142,16 @@ leaderElection:
     # -- Create Role and RoleBinding for Lease access.
     create: true
 
-# -- Pod Disruption Budget configuration.
+# -- Pod Disruption Budget config.
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
   # maxUnavailable: 1
 
-# -- Network Policy configuration.
+# -- NetworkPolicy config.
 networkPolicy:
   enabled: false
-  # -- Egress rules. By default, allow HTTPS/HTTP/DNS to anywhere (needed for GitLab, Vault, AWS APIs).
+  # -- Egress rules. By default, allow HTTPS/HTTP/DNS to anywhere so GitLab, Vault, and AWS APIs can be reached.
   egress:
     - to: []
       ports:
@@ -169,7 +167,7 @@ networkPolicy:
           port: 53
         - protocol: TCP
           port: 53
-  # -- Ingress rules. By default, deny all ingress since this is a worker without exposed ports.
+  # -- Ingress rules. By default, deny all ingress because this is a worker without public ports.
   ingress: []
   # -- Metrics ingress source selectors. Only applied when both networkPolicy.enabled
   # and metrics.enabled are true. When empty, no ingress rule is created for the metrics
@@ -187,7 +185,7 @@ volumes: []
 # -- Extra volume mounts for the container.
 volumeMounts: []
 
-# -- Startup probe configuration.
+# -- Startup probe config.
 # When metrics are enabled, probes default to HTTP /healthz on the metrics port.
 # Set useExec: true to force exec probes (e.g. for custom images).
 startupProbe:
@@ -197,7 +195,7 @@ startupProbe:
   periodSeconds: 10
   failureThreshold: 3
 
-# -- Liveness probe configuration.
+# -- Liveness probe config.
 # When metrics are enabled, probes default to HTTP /healthz on the metrics port.
 # Set useExec: true to force exec probes (e.g. for custom images).
 livenessProbe:
@@ -207,7 +205,7 @@ livenessProbe:
   periodSeconds: 60
   failureThreshold: 3
 
-# -- Metrics configuration.
+# -- Metrics config.
 # The application exposes a Prometheus-compatible /metrics endpoint on :9090
 # and a /healthz endpoint for health checks.
 metrics:
@@ -221,7 +219,7 @@ metrics:
     # prometheus.io/port: "9090"
     # prometheus.io/path: "/metrics"
 
-  # -- Metrics Service configuration.
+  # -- Metrics Service config.
   service:
     # -- Create a Service resource for the metrics endpoint.
     enabled: true
@@ -234,7 +232,7 @@ metrics:
     # -- Additional annotations for the metrics Service.
     annotations: {}
 
-  # -- ServiceMonitor configuration for the Prometheus Operator.
+  # -- ServiceMonitor config for the Prometheus Operator.
   serviceMonitor:
     # -- Create a ServiceMonitor resource.
     enabled: false
@@ -246,9 +244,9 @@ metrics:
     interval: 30s
     # -- Scrape timeout.
     scrapeTimeout: ""
-    # -- Metric relabeling configuration.
+    # -- Metric relabeling config.
     metricRelabelings: []
-    # -- Relabeling configuration.
+    # -- Relabeling config.
     relabelings: []
 
 # -- Extra environment variables.

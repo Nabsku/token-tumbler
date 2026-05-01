@@ -1,6 +1,6 @@
-# Code of Conduct
+# Code of conduct
 
-This project uses the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
+This project follows the [Contributor Covenant Code of Conduct](https://www.contributor-covenant.org/version/2/1/code_of_conduct/).
 
 ## Expected behavior
 
@@ -17,6 +17,6 @@ This project uses the [Contributor Covenant Code of Conduct](https://www.contrib
 
 ## Enforcement
 
-Maintainers may remove comments, close issues, or restrict participation when needed to keep the project safe and productive.
+Maintainers may remove comments, close issues, or restrict participation when needed to keep the project usable and safe.
 
 Report conduct concerns through the same private channel described in [SECURITY.md](SECURITY.md) when public discussion would expose sensitive information.

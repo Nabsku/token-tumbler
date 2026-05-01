@@ -32,14 +32,14 @@ make vuln   # requires govulncheck
 make e2e    # requires Docker; starts GitLab CE and Vault
 ```
 
-## Development Guidelines
+## Development guidelines
 
-- Keep changes small and commit atomically.
+- Keep changes small. One commit should tell one story.
 - Prefer conventional commit prefixes (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`) so `git-cliff` can generate useful changelog entries.
 - Return errors with context instead of panicking or logging and returning.
 - Add or update tests for behavior changes.
 - Keep unit tests independent of external services; use the `e2e` build tag for container-backed tests.
-- Treat `config.example.yaml` as the tracked example only. Never commit real `config.yaml` files, tokens, Vault credentials, secret-store paths, or production target names.
+- Treat `config.example.yaml` as the only tracked example. Never commit real `config.yaml` files, tokens, Vault credentials, secret store paths, or production target names.
 
 ## Changelog
 
@@ -49,9 +49,9 @@ make e2e    # requires Docker; starts GitLab CE and Vault
 make changelog
 ```
 
-Before cutting a release, regenerate the changelog, review the output, commit it, then create and push the version tag.
+Before cutting a release, regenerate the changelog, review it, commit it, then create and push the version tag.
 
-## Pull Request Checklist
+## Pull request checklist
 
 - [ ] `make check` passes
 - [ ] Relevant tests were added or updated
