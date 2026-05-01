@@ -2,7 +2,7 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# -- Number of replicas to run. Keep at 1 to avoid duplicate token rotations.
+# -- Number of replicas to run. Chart rendering fails above 1 unless leaderElection.enabled is true.
 replicaCount: 1
 
 image:
@@ -119,8 +119,7 @@ affinity: {}
 topologySpreadConstraints: []
 
 # -- Horizontal Pod Autoscaler configuration.
-# Disabled by default because running more than one replica can cause
-# concurrent token rotations. Only enable if you implement leader election.
+# Rendering fails when maxReplicas is above 1 unless leaderElection.enabled is true.
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -128,6 +127,22 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   targetMemoryUtilizationPercentage: 80
   behavior: {}
+
+# -- Kubernetes leader election using coordination.k8s.io Lease objects.
+# Enable before running more than one replica.
+leaderElection:
+  enabled: false
+  # -- Lease name. Defaults to the chart fullname when empty.
+  leaseName: ""
+  # -- Lease duration. Must be greater than renewDeadline.
+  leaseDuration: 15s
+  # -- Renew deadline. Must be greater than retryPeriod.
+  renewDeadline: 10s
+  # -- Retry period for acquiring/renewing the lease.
+  retryPeriod: 2s
+  rbac:
+    # -- Create Role and RoleBinding for Lease access.
+    create: true
 
 # -- Pod Disruption Budget configuration.
 podDisruptionBudget:

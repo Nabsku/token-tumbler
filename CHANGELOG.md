@@ -4,6 +4,14 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [Unreleased]
+
+
+### Documentation
+
+- Fix readme mermaid syntax ([123d994](https://github.com/Nabsku/token-tumbler/commit/123d994bf914024f7ae2dbd07fd70ca55c39b70e))
+
+- Automate changelog generation ([d6c7a26](https://github.com/Nabsku/token-tumbler/commit/d6c7a2613f418fa82ebab9aeef520432a9e49de8))
 ## [1.0.2] - 2026-05-01
 
 

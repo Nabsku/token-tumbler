@@ -60,3 +60,17 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate values that could cause unsafe concurrent token rotations.
+*/}}
+{{- define "token-tumbler.validateReplicaSafety" -}}
+{{- if not .Values.leaderElection.enabled }}
+{{- if and (not .Values.autoscaling.enabled) (gt (int .Values.replicaCount) 1) }}
+{{- fail "replicaCount must be 1 unless leaderElection.enabled is true" }}
+{{- end }}
+{{- if and .Values.autoscaling.enabled (gt (int .Values.autoscaling.maxReplicas) 1) }}
+{{- fail "autoscaling.maxReplicas must be 1 unless leaderElection.enabled is true" }}
+{{- end }}
+{{- end }}
+{{- end }}

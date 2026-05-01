@@ -1,0 +1,66 @@
+suite: leader election RBAC
+templates:
+  - templates/leader-election-rbac.yaml
+tests:
+  - it: does not render RBAC when leader election is disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders namespaced Lease RBAC when leader election is enabled
+    set:
+      leaderElection:
+        enabled: true
+        rbac:
+          create: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Role
+        documentIndex: 0
+      - equal:
+          path: rules[0].apiGroups[0]
+          value: coordination.k8s.io
+        documentIndex: 0
+      - equal:
+          path: rules[0].resources[0]
+          value: leases
+        documentIndex: 0
+      - contains:
+          path: rules[0].verbs
+          content: get
+        documentIndex: 0
+      - contains:
+          path: rules[0].verbs
+          content: create
+        documentIndex: 0
+      - contains:
+          path: rules[0].verbs
+          content: update
+        documentIndex: 0
+      - contains:
+          path: rules[0].verbs
+          content: patch
+        documentIndex: 0
+      - isKind:
+          of: RoleBinding
+        documentIndex: 1
+      - equal:
+          path: subjects[0].kind
+          value: ServiceAccount
+        documentIndex: 1
+      - equal:
+          path: roleRef.kind
+          value: Role
+        documentIndex: 1
+
+  - it: skips RBAC when externally managed
+    set:
+      leaderElection:
+        enabled: true
+        rbac:
+          create: false
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -83,15 +83,21 @@ metrics:
 
 If `networkPolicy.enabled` is true, metrics ingress remains denied unless `networkPolicy.metricsFrom` allows your monitoring namespace or pods.
 
-## Replica safety
+## Leader election and replica safety
 
-Keep `replicaCount: 1`. Multiple replicas can rotate the same token concurrently because the application does not currently include leader election or a distributed lock.
+Keep `replicaCount: 1` unless `leaderElection.enabled` is true. When enabled, Token Tumbler uses a Kubernetes `Lease` so only the elected pod runs token rotations.
+
+The chart fails rendering if `replicaCount > 1` or `autoscaling.maxReplicas > 1` while leader election is disabled.
 
 ```yaml
-replicaCount: 1
+replicaCount: 2
+leaderElection:
+  enabled: true
 autoscaling:
-  enabled: false
+  enabled: true
 ```
+
+Leader election requires in-cluster Kubernetes credentials. The chart automatically mounts the service account token and creates namespace-scoped Lease RBAC when `leaderElection.enabled` and `leaderElection.rbac.create` are true.
 
 ## NetworkPolicy
 
