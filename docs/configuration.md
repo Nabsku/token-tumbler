@@ -57,6 +57,8 @@ Each entry must define exactly one target (`repoName` or `groupName`):
 
 Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
 
+This custom duration syntax applies to YAML config fields such as `rotationThreshold`, `lifetime`, and `gracePeriod`. The `TOKEN_TUMBLER_INTERVAL` environment variable uses Go duration syntax instead, so use values like `30s`, `5m`, or `1h` there.
+
 Examples:
 
 - `30s` - 30 seconds
@@ -69,6 +71,19 @@ Examples:
 ## Uniqueness rules
 
 Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. This prevents two config entries from creating or cleaning up the same logical GitLab token.
+
+## Environment variables
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `GITLAB_URL` | Yes | GitLab base URL. |
+| `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke configured project/group access tokens. |
+| `TOKEN_TUMBLER_INTERVAL` | No | Polling interval. Defaults to `5m`. Uses Go duration syntax (`30s`, `5m`, `1h`). |
+| `TOKEN_TUMBLER_METRICS_ADDR` | No | Metrics and health server bind address. Defaults to `:9090`. |
+| `APPROLE_ID` | Vault AppRole only | Vault AppRole role ID. |
+| `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
+| `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
+| `VAULT_K8S_TOKEN_PATH` | No | Optional service-account token path override for Vault Kubernetes auth. |
 
 ## Validation
 

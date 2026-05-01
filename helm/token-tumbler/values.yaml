@@ -77,10 +77,14 @@ env:
   approleId: ""
   # -- Vault AppRole Secret (required when Vault secret store is used).
   approleSecret: ""
+  # -- Vault token (required when using vaultAuthMethod: token).
+  vaultToken: ""
+  # -- Optional service account token path override for vaultAuthMethod: kubernetes.
+  vaultK8sTokenPath: ""
 
 # -- Use an existing secret instead of creating one from .Values.env.
-# The secret must contain the keys: GITLAB_TOKEN, GITLAB_URL, TOKEN_TUMBLER_INTERVAL,
-# APPROLE_ID, APPROLE_SECRET.
+# The secret can contain the keys: GITLAB_TOKEN, GITLAB_URL, TOKEN_TUMBLER_INTERVAL,
+# APPROLE_ID, APPROLE_SECRET, VAULT_TOKEN, VAULT_K8S_TOKEN_PATH.
 existingSecret: ""
 
 serviceAccount:

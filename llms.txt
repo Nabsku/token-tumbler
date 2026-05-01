@@ -4,9 +4,11 @@ Token Tumbler is a Go daemon for safely rotating GitLab project and group access
 
 ## Important Files
 
-- `main.go`: daemon startup, config loading, token processing loop, secret-store dispatch, metrics/health HTTP server, and graceful shutdown.
+- `main.go`: thin daemon entrypoint for environment checks, config loading, GitLab client creation, metrics/health HTTP server startup, and the runner loop.
 - `config.example.yaml`: sanitized example config. At runtime, the daemon reads `config.yaml` from the current working directory.
 - `internal/config/config.go`: simple env-var config for `GITLAB_URL` and `GITLAB_TOKEN`.
+- `internal/config/repository_config.go`: YAML config loading/validation and `TOKEN_TUMBLER_INTERVAL` parsing.
+- `internal/runner/`: token processing orchestration, matching, persistence, rollback, and cleanup coordination.
 - `internal/types/repository`: config model, validation, token naming, duration parsing, and renewal rules.
 - `internal/project`: GitLab project token gathering, creation, renewal, cleanup, and age checking.
 - `internal/group`: GitLab group token gathering, creation, renewal, cleanup, and age checking.
@@ -14,7 +16,8 @@ Token Tumbler is a Go daemon for safely rotating GitLab project and group access
 - `internal/metrics/metrics.go`: Prometheus metrics (rotation counters, duration histograms, active tokens, rollback attempts/outcomes).
 - `internal/logger/logger.go`: structured logging with `go.uber.org/zap`.
 - `internal/helper/`: env var helpers, config parser, and secure file-path validation.
-- `internal/gitlabutil/pagination.go`: GitLab API pagination helpers.
+- `internal/gitlabutil/`: GitLab client creation and API pagination helpers.
+- `internal/server/`: metrics and health HTTP server startup.
 - `helm/token-tumbler/`: Helm chart for Kubernetes deployment.
 - `e2e/`: slow Testcontainers-backed tests for GitLab CE and Vault.
 - `docs/`: user-facing documentation (configuration, secret stores, monitoring, development, architecture).
@@ -44,7 +47,8 @@ Vault-specific env vars (required only when a config entry uses `secretStore: va
 
 - `APPROLE_ID` and `APPROLE_SECRET` — for Vault AppRole auth (default).
 - `VAULT_TOKEN` — for Vault token auth (set `vaultAuthMethod: token`).
-- `VAULT_AUTH_ROLE` — for Vault Kubernetes or AWS IAM auth (set `vaultAuthMethod: kubernetes` or `aws`).
+- `vaultAuthRole` is configured in `config.yaml` for Vault Kubernetes or AWS IAM auth (`vaultAuthMethod: kubernetes` or `aws`).
+- `VAULT_K8S_TOKEN_PATH` — optional service-account token path override for Vault Kubernetes auth.
 
 Use `secretStore: none` explicitly for intentional no-persistence entries.
 

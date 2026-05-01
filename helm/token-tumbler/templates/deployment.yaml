@@ -76,6 +76,7 @@ spec:
                 secretKeyRef:
                   name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
                   key: APPROLE_ID
+                  optional: true
             {{- end }}
             {{- if or .Values.env.approleSecret .Values.existingSecret }}
             - name: APPROLE_SECRET
@@ -83,6 +84,23 @@ spec:
                 secretKeyRef:
                   name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
                   key: APPROLE_SECRET
+                  optional: true
+            {{- end }}
+            {{- if or .Values.env.vaultToken .Values.existingSecret }}
+            - name: VAULT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: VAULT_TOKEN
+                  optional: true
+            {{- end }}
+            {{- if or .Values.env.vaultK8sTokenPath .Values.existingSecret }}
+            - name: VAULT_K8S_TOKEN_PATH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
+                  key: VAULT_K8S_TOKEN_PATH
+                  optional: true
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}

@@ -62,6 +62,43 @@ Gauge of active tokens found per repository at the start of each poll cycle.
 | `target_type` | `project`, `group`                |
 | `repo_name`   | The repository `name` from config |
 
+### `token_tumbler_token_rollback_attempts_total`
+
+Counter of rollback attempts after a replacement token was created but secret persistence failed.
+
+| Label         | Values             |
+| ------------- | ------------------ |
+| `target_type` | `project`, `group` |
+| `repo_name`   | The repository `name` from config |
+
+### `token_tumbler_token_rollback_outcomes_total`
+
+Counter of rollback outcomes after failed secret persistence.
+
+| Label         | Values             |
+| ------------- | ------------------ |
+| `target_type` | `project`, `group` |
+| `repo_name`   | The repository `name` from config |
+| `outcome`     | `success`, `error` |
+
+### `token_tumbler_orphan_tokens_detected_total`
+
+Counter of cases where Token Tumbler detected a newer GitLab token than the token currently persisted in Vault.
+
+| Label         | Values             |
+| ------------- | ------------------ |
+| `target_type` | `project`, `group` |
+| `repo_name`   | The repository `name` from config |
+
+### `token_tumbler_cleanup_skipped_total`
+
+Counter of cleanup passes skipped because Vault metadata could not be read safely.
+
+| Label         | Values             |
+| ------------- | ------------------ |
+| `target_type` | `project`, `group` |
+| `repo_name`   | The repository `name` from config |
+
 ## Example Prometheus Queries
 
 **Rotation success rate over the last hour:**
@@ -86,6 +123,21 @@ rate(token_tumbler_secret_store_operations_total{outcome="error"}[5m])
 **Active tokens per repository:**
 ```promql
 token_tumbler_active_tokens
+```
+
+**Rollback errors:**
+```promql
+rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m])
+```
+
+**Orphan token detections:**
+```promql
+increase(token_tumbler_orphan_tokens_detected_total[1h])
+```
+
+**Skipped cleanup:**
+```promql
+increase(token_tumbler_cleanup_skipped_total[1h])
 ```
 
 ## Alerting Examples
@@ -113,6 +165,28 @@ token_tumbler_active_tokens
     severity: critical
   annotations:
     summary: "Token Tumbler is failing to write secrets"
+```
+
+**Rollback failures:**
+```yaml
+- alert: TokenTumblerRollbackFailures
+  expr: rate(token_tumbler_token_rollback_outcomes_total{outcome="error"}[5m]) > 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Token Tumbler failed to roll back a token after secret persistence failed"
+```
+
+**Cleanup skipped:**
+```yaml
+- alert: TokenTumblerCleanupSkipped
+  expr: increase(token_tumbler_cleanup_skipped_total[30m]) > 0
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Token Tumbler skipped old-token cleanup because secret metadata was unavailable"
 ```
 
 ## Kubernetes Setup

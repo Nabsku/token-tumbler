@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible problem with Token Tumbler
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include real GitLab tokens, Vault paths, AWS account details, Kubernetes Secret names, or private project/group paths.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Token Tumbler version, commit, or container tag.
+      placeholder: v1.0.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the issue and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Provide sanitized steps or config snippets.
+      placeholder: |
+        1. Configure ...
+        2. Run ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or config
+      render: text
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Release binary
+        - Docker
+        - Docker Compose
+        - Helm
+        - Source / go run
+        - Other
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Safety checklist
+      options:
+        - label: I removed real tokens, secret paths, account IDs, and private GitLab paths from this report.
+          required: true
