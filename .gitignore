@@ -1,0 +1,25 @@
+# Local runtime configuration and secrets
+config.yaml
+.env
+.env.*
+*.local.yaml
+*.secret.yaml
+*.secrets.yaml
+
+# Build and release artifacts
+dist/
+bin/
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Logs and editor/system files
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# Local Go workspace/cache files
+go.work
+go.work.sum

@@ -48,7 +48,13 @@ See [docs/architecture.md](docs/architecture.md) for the rotation flow and safet
 
 ## Quick start
 
-Create `config.yaml`:
+Create `config.yaml` from the example:
+
+```sh
+cp config.example.yaml config.yaml
+```
+
+Then edit the targets and secret-store paths for your environment:
 
 ```yaml
 prefix: tt-

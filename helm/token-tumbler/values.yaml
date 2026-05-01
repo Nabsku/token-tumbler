@@ -60,8 +60,8 @@ config:
     #   lifetime: 5d
     #   secretStore: vault
     #   gracePeriod: 2d
-    #   vaultPath: test
-    #   vaultKey: test-secret
+    #   vaultPath: teams/example/group
+    #   vaultKey: gitlab_token
     #   vaultMount: kv
 
 # -- Environment variables injected into the container.

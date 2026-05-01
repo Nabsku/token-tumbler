@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Go 1.25 or newer
+- Go 1.26 or newer
 - Docker for E2E tests
 - Optional: `golangci-lint` and `govulncheck`
 
@@ -38,7 +38,7 @@ make e2e    # requires Docker; starts GitLab CE and Vault
 - Return errors with context instead of panicking or logging and returning.
 - Add or update tests for behavior changes.
 - Keep unit tests independent of external services; use the `e2e` build tag for container-backed tests.
-- Treat `config.yaml` as an example only; never commit real tokens or Vault credentials.
+- Treat `config.example.yaml` as the tracked example only. Never commit real `config.yaml` files, tokens, Vault credentials, secret-store paths, or production target names.
 
 ## Pull Request Checklist
 
