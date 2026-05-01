@@ -4,13 +4,17 @@
 
 Please report suspected vulnerabilities privately. Do not open a public issue with exploit details, real tokens, Vault paths, GitLab project names, Kubernetes Secret names, AWS account details, or production configuration.
 
-If GitHub private vulnerability reporting is enabled for this repository, use that channel. Otherwise, contact the maintainers directly and include:
+Use GitHub private vulnerability reporting when available:
+
+<https://github.com/Nabsku/token-tumbler/security/advisories/new>
+
+If that channel is unavailable, open a public issue without sensitive details and ask for a private maintainer contact. Include:
 
 - A short description of the issue and affected versions or commits.
 - Steps to reproduce with sanitized examples only.
 - The expected impact and any known mitigations.
 
-We will acknowledge valid reports as soon as practical, investigate, and coordinate a fix before public disclosure.
+We aim to acknowledge reports within 7 days, provide an initial assessment within 14 days, and coordinate a fix before public disclosure when the report is valid.
 
 ## Sensitive Data Guidance
 
@@ -25,3 +29,8 @@ Token Tumbler manages GitLab access tokens and writes them to secret stores. Whe
 ## Supported Versions
 
 Security fixes are published through GitHub Releases. Users should run the latest released version unless a maintainer explicitly recommends otherwise.
+
+| Version | Supported |
+| --- | --- |
+| Latest release | Yes |
+| Older releases | Best effort only |

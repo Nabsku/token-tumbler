@@ -1,13 +1,25 @@
+# Prefix used when Token Tumbler creates GitLab access token names.
+# `tt` and `tt-` are treated as the same prefix family for matching cleanup candidates.
 prefix: tt-
+
+# Each entry manages either a GitLab group access token (`groupName`) or project
+# access token (`repoName`). Replace these sanitized examples with your own targets.
 repositories:
   - groupName: group/example-group
+    # Logical token name. Generated tokens look like: <prefix><name>-<timestamp>.
     name: deploy
+    # GitLab access token scopes to request when creating replacement tokens.
     permissions:
       - api
+    # Rotate when the current token has this much or less lifetime remaining.
     rotationThreshold: 3d
+    # Lifetime for newly-created GitLab access tokens.
     lifetime: 5d
+    # Secret store backend: vault, aws, k8s, file, or none.
     secretStore: vault
+    # Keep the previous token for this long after a successful rotation.
     gracePeriod: 2d
+    # Vault KVv2 settings for the persisted token value.
     vaultPath: teams/example/group
     vaultKey: gitlab_token
     vaultMount: kv
