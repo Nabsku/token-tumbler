@@ -33,6 +33,27 @@ make check
 | `make lint`  | Run lint checks.                                    |
 | `make vuln`  | Run vulnerability checks.                           |
 | `make tidy`  | Tidy Go modules.                                    |
+| `make changelog` | Regenerate `CHANGELOG.md` with `git-cliff`.     |
+| `make changelog-check` | Verify `CHANGELOG.md` matches `git-cliff` output. |
+
+## Changelog generation
+
+`CHANGELOG.md` is generated from conventional commits using [`git-cliff`](https://git-cliff.org/). Install `git-cliff`, then run:
+
+```sh
+make changelog
+```
+
+Use conventional commit prefixes for useful grouping:
+
+- `feat:` for user-facing features
+- `fix:` for bug fixes
+- `docs:` for documentation
+- `refactor:` for internal restructuring
+- `test:` for tests
+- `chore:` for maintenance
+
+Before publishing a release, regenerate and commit `CHANGELOG.md`, then create and push the release tag.
 
 ## E2E tests
 
