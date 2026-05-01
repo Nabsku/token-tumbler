@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: fmt test vet build check e2e lint vuln tidy diff-check
+.PHONY: fmt test vet build check e2e lint vuln tidy diff-check changelog changelog-check
 
 fmt:
 	$(GO) fmt ./...
@@ -30,3 +30,12 @@ vuln:
 
 tidy:
 	$(GO) mod tidy
+
+changelog:
+	git cliff --config cliff.toml --output CHANGELOG.md
+	python3 -c 'from pathlib import Path; p=Path("CHANGELOG.md"); p.write_text(p.read_text().rstrip() + "\n")'
+
+changelog-check:
+	git cliff --config cliff.toml --output /tmp/token-tumbler-CHANGELOG.md
+	python3 -c 'from pathlib import Path; p=Path("/tmp/token-tumbler-CHANGELOG.md"); p.write_text(p.read_text().rstrip() + "\n")'
+	diff -u CHANGELOG.md /tmp/token-tumbler-CHANGELOG.md
