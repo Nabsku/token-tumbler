@@ -42,8 +42,8 @@ flowchart LR
     Secrets --> None[none]
 
     Daemon --> Metrics[Prometheus metrics]
-    Metrics --> Health[/healthz]
-    Metrics --> MetricsEndpoint[/metrics]
+    Metrics --> Health["/healthz"]
+    Metrics --> MetricsEndpoint["/metrics"]
 
     Daemon --> Cleanup[Old-token cleanup]
     Cleanup --> GitLab
