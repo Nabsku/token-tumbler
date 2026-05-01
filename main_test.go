@@ -122,6 +122,12 @@ repositories:
 }
 
 func TestCheckedInConfig_ShouldValidate(t *testing.T) {
+	buff, err := os.ReadFile("config.example.yaml")
+	require.NoError(t, err)
+
+	t.Chdir(t.TempDir())
+	require.NoError(t, os.WriteFile("config.yaml", buff, 0o600))
+
 	config, err := readConfig()
 
 	require.NoError(t, err)

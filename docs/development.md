@@ -49,6 +49,6 @@ Optional E2E image overrides:
 
 ## Contributing
 
-Contributions are welcome. Please run `make check` before opening a pull request and avoid committing real GitLab tokens, Vault credentials, or production config files.
+Contributions are welcome. Please run `make check` before opening a pull request and avoid committing real GitLab tokens, Vault credentials, secret-store paths, private target names, or production config files.
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md).

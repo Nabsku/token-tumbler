@@ -1,0 +1,24 @@
+prefix: tt-
+repositories:
+  - groupName: group/example-group
+    name: deploy
+    permissions:
+      - api
+    rotationThreshold: 3d
+    lifetime: 5d
+    secretStore: vault
+    gracePeriod: 2d
+    vaultPath: teams/example/group
+    vaultKey: gitlab_token
+    vaultMount: kv
+  - repoName: group/example-project
+    name: deploy
+    permissions:
+      - api
+    rotationThreshold: 3d
+    lifetime: 5d
+    secretStore: vault
+    gracePeriod: 2d
+    vaultPath: teams/example/project
+    vaultKey: gitlab_token
+    vaultMount: kv

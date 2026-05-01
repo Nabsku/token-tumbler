@@ -5,7 +5,7 @@ Token Tumbler is a Go daemon for safely rotating GitLab project and group access
 ## Important Files
 
 - `main.go`: daemon startup, config loading, token processing loop, secret-store dispatch, metrics/health HTTP server, and graceful shutdown.
-- `config.yaml`: example YAML config read from the current working directory.
+- `config.example.yaml`: sanitized example config. At runtime, the daemon reads `config.yaml` from the current working directory.
 - `internal/config/config.go`: simple env-var config for `GITLAB_URL` and `GITLAB_TOKEN`.
 - `internal/types/repository`: config model, validation, token naming, duration parsing, and renewal rules.
 - `internal/project`: GitLab project token gathering, creation, renewal, cleanup, and age checking.
