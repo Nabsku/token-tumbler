@@ -1,0 +1,93 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: renders one replica without leader election by default
+    set:
+      existingSecret: token-tumbler-env
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: false
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_ENABLED
+
+  - it: renders leader election env and allows multiple replicas when enabled
+    set:
+      existingSecret: token-tumbler-env
+      replicaCount: 2
+      leaderElection:
+        enabled: true
+        leaseName: token-tumbler-custom
+        leaseDuration: 30s
+        renewDeadline: 20s
+        retryPeriod: 5s
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 2
+      - equal:
+          path: spec.template.spec.automountServiceAccountToken
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_ENABLED
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_LEASE_NAME
+            value: token-tumbler-custom
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_IDENTITY
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_LEASE_DURATION
+            value: 30s
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE
+            value: 20s
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD
+            value: 5s
+
+  - it: rejects multiple replicas without leader election
+    set:
+      existingSecret: token-tumbler-env
+      replicaCount: 2
+    asserts:
+      - failedTemplate:
+          errorMessage: replicaCount must be 1 unless leaderElection.enabled is true
+
+  - it: rejects autoscaling above one replica without leader election
+    set:
+      existingSecret: token-tumbler-env
+      autoscaling:
+        enabled: true
+        maxReplicas: 2
+    asserts:
+      - failedTemplate:
+          errorMessage: autoscaling.maxReplicas must be 1 unless leaderElection.enabled is true

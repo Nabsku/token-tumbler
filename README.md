@@ -151,7 +151,7 @@ helm install token-tumbler ./helm/token-tumbler \
   --set env.gitlabToken="glpat-..."
 ```
 
-For production, prefer `existingSecret` or an external secrets operator instead of passing secrets with `--set`. See the [Helm chart README](helm/token-tumbler/README.md).
+For production, prefer `existingSecret` or an external secrets operator instead of passing secrets with `--set`. Enable Helm `leaderElection.enabled` before running more than one replica. See the [Helm chart README](helm/token-tumbler/README.md).
 
 ## Environment variables
 
@@ -165,6 +165,13 @@ For production, prefer `existingSecret` or an external secrets operator instead 
 | `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
 | `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
 | `VAULT_K8S_TOKEN_PATH` | No | Optional service-account token path override for Vault Kubernetes auth. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_ENABLED` | No | Enables Kubernetes leader election with Lease objects. Defaults to `false`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_NAMESPACE` | Leader election only | Namespace containing the Lease. The Helm chart sets this from the pod namespace. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_NAME` | No | Lease name. Defaults to `token-tumbler`; the Helm chart uses the release fullname. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_IDENTITY` | No | Unique pod identity. Defaults to hostname; the Helm chart uses pod name. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_DURATION` | No | Lease duration. Defaults to `15s`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
 
 Config durations like `rotationThreshold`, `lifetime`, and `gracePeriod` support `s`, `m`, `h`, `d`, `w`, and `M`. `TOKEN_TUMBLER_INTERVAL` is different: it uses Go's `time.ParseDuration`, so use `s`, `m`, or `h`.
 

@@ -1,6 +1,6 @@
 GO ?= go
 
-.PHONY: fmt test vet build check e2e lint vuln tidy diff-check changelog changelog-check
+.PHONY: fmt test vet build check e2e lint vuln tidy diff-check changelog changelog-check helm-test
 
 fmt:
 	$(GO) fmt ./...
@@ -30,6 +30,9 @@ vuln:
 
 tidy:
 	$(GO) mod tidy
+
+helm-test:
+	helm unittest helm/token-tumbler
 
 changelog:
 	git cliff --config cliff.toml --output CHANGELOG.md

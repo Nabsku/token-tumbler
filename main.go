@@ -10,6 +10,7 @@ import (
 	"github.com/nabsku/token-tumbler/internal/config"
 	"github.com/nabsku/token-tumbler/internal/gitlabutil"
 	"github.com/nabsku/token-tumbler/internal/helper"
+	leader "github.com/nabsku/token-tumbler/internal/leaderelection"
 	"github.com/nabsku/token-tumbler/internal/logger"
 	"github.com/nabsku/token-tumbler/internal/runner"
 	"github.com/nabsku/token-tumbler/internal/server"
@@ -53,9 +54,25 @@ func main() {
 	if err != nil {
 		l.Fatal("reading poll interval failed", zap.Error(err))
 	}
+	r := runner.NewRunner(gitlabClient, yamlConfig, l)
+	leaderConfig, err := leader.ConfigFromEnv()
+	if err != nil {
+		l.Fatal("reading leader election config failed", zap.Error(err))
+	}
+	if leaderConfig.Enabled {
+		elector := leader.NewRunner(leaderConfig, l)
+		if err := elector.Run(ctx, func(leaderCtx context.Context) { runLoop(leaderCtx, l, r, pollInterval) }); err != nil {
+			l.Fatal("leader election failed", zap.Error(err))
+		}
+		return
+	}
+
+	runLoop(ctx, l, r, pollInterval)
+}
+
+func runLoop(ctx context.Context, l *zap.Logger, r *runner.Runner, pollInterval time.Duration) {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
-	r := runner.NewRunner(gitlabClient, yamlConfig, l)
 
 	for {
 		select {

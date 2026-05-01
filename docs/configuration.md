@@ -84,6 +84,15 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
 | `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
 | `VAULT_K8S_TOKEN_PATH` | No | Optional service-account token path override for Vault Kubernetes auth. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_ENABLED` | No | Enables Kubernetes leader election with Lease objects. Defaults to `false`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_NAMESPACE` | Leader election only | Namespace containing the Lease. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_NAME` | No | Lease name. Defaults to `token-tumbler`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_IDENTITY` | No | Unique instance identity. Defaults to hostname. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_DURATION` | No | Lease duration. Defaults to `15s`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
+| `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
+
+Leader election is intended for Kubernetes deployments with more than one replica. It requires in-cluster Kubernetes credentials that can get, list, watch, create, update, and patch `coordination.k8s.io` Lease objects in the configured namespace.
 
 ## Validation
 
