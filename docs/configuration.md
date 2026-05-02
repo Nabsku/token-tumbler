@@ -36,7 +36,7 @@ Each entry must define one target: either `repoName` or `groupName`.
 | `repoName`          | One of `repoName` or `groupName` | GitLab project path or ID.                                                           |
 | `groupName`         | One of `repoName` or `groupName` | GitLab group path or ID.                                                             |
 | `name`              | Yes                              | Logical token name used in generated GitLab token names.                             |
-| `permissions`       | Yes                              | GitLab token scopes, such as `api`.                                                  |
+| `permissions`       | Yes                              | Scopes for generated GitLab tokens, such as `read_repository` or `api`. See [Permissions and token keys](permissions.md). |
 | `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
 | `lifetime`          | Yes                              | Maximum lifetime for new tokens. Must be greater than `rotationThreshold`.           |
 | `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
@@ -77,7 +77,7 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | Variable | Required | Description |
 | --- | --- | --- |
 | `GITLAB_URL` | Yes | GitLab base URL. |
-| `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke configured project/group access tokens. |
+| `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke configured project/group access tokens. See [Permissions and token keys](permissions.md). |
 | `TOKEN_TUMBLER_INTERVAL` | No | Polling interval. Defaults to `5m`. Uses Go duration syntax (`30s`, `5m`, `1h`). |
 | `TOKEN_TUMBLER_METRICS_ADDR` | No | Metrics and health server bind address. Defaults to `:9090`. |
 | `APPROLE_ID` | Vault AppRole only | Vault AppRole role ID. |

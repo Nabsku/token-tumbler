@@ -189,6 +189,7 @@ Config durations such as `rotationThreshold`, `lifetime`, and `gracePeriod` supp
 ## Documentation
 
 - [Configuration](docs/configuration.md) - config fields, validation rules, and examples
+- [Permissions and token keys](docs/permissions.md) - GitLab token permissions, generated scopes, destination keys, and `glab` examples
 - [Secret stores](docs/secret-stores.md) - Vault, AWS, Kubernetes, file store, and `none`
 - [Monitoring](docs/monitoring.md) - Prometheus metrics, PromQL queries, and alert examples
 - [Development](docs/development.md) - tests, the E2E suite, Makefile targets, and contributing notes

@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [1.1.5] - 2026-05-02
+
+
+### Bug fixes
+
+- Always render helm configmap ([76a3956](https://github.com/Nabsku/token-tumbler/commit/76a3956f93cc78e30f757c9d834e598b8b15cd9e))
 ## [1.1.4] - 2026-05-02
 
 
