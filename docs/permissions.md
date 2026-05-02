@@ -1,26 +1,26 @@
 # Permissions and token keys
 
-Token Tumbler deals with two different GitLab token concepts. Keep them separate when you design access:
+Token Tumbler uses one token to do the rotating, then creates other tokens for your apps or jobs to use. Those are easy to mix up.
 
-| Setting | What it is | Recommended access |
+| Setting | Meaning | Use |
 | --- | --- | --- |
-| `GITLAB_TOKEN` | The operator token Token Tumbler runs with. It lists existing project/group access tokens, creates replacements, and revokes stale tokens. | Use a dedicated bot or service account token with the `api` scope. Grant that account only the GitLab role required on the configured targets. |
-| `config.repositories[].permissions` | The scopes granted to each newly created project/group access token. | Grant only what the consumer of that generated token needs. Do not default to `api` unless the downstream workload needs API write access. |
-| `vaultKey`, `k8sSecretKey`, or `filePath` | The destination key/path where Token Tumbler writes the generated token value. | Use a stable key name expected by the consuming workload, such as `gitlab_token` or `token`. |
+| `GITLAB_TOKEN` | The token Token Tumbler runs with. It lists existing project or group access tokens, creates new ones, and deletes old ones. | Use a bot or service account token with `api`. Give that account access only to the projects or groups in your config. |
+| `config.repositories[].permissions` | The scopes on the tokens Token Tumbler creates. | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access. |
+| `vaultKey`, `k8sSecretKey`, or `filePath` | Where Token Tumbler writes the new token value. | Use the key or path your app already reads, for example `gitlab_token` or `token`. |
 
-## `GITLAB_TOKEN` permissions
+## `GITLAB_TOKEN`
 
-`GITLAB_TOKEN` must be able to manage access tokens for every configured target:
+`GITLAB_TOKEN` needs enough access to manage tokens for every target in `config.yaml`:
 
-- For `repoName` targets, the token owner should have Maintainer or Owner access to the project.
-- For `groupName` targets, the token owner should have Owner access to the group.
-- The token itself needs the `api` scope because GitLab token management APIs require API access.
+- `repoName` targets: the token owner needs Maintainer or Owner on the project.
+- `groupName` targets: the token owner needs Owner on the group.
+- The token needs the `api` scope. GitLab's token management API requires it.
 
-Use a dedicated bot/service account instead of a human user's personal token when possible. Limit that account to only the projects or groups Token Tumbler manages.
+Use a dedicated bot or service account if you can. A human PAT works, but it is harder to audit and easier to over-permission by accident.
 
-## Generated token scopes
+## Scopes for generated tokens
 
-The `permissions` field controls the scopes on tokens Token Tumbler creates:
+The `permissions` field is for the tokens Token Tumbler creates, not for `GITLAB_TOKEN` itself:
 
 ```yaml
 repositories:
@@ -37,20 +37,20 @@ repositories:
     vaultKey: gitlab_token
 ```
 
-Common examples:
+Some common choices:
 
-| Consumer needs | Example generated token scopes |
+| App or job needs to | Scope |
 | --- | --- |
-| Clone or fetch source only | `read_repository` |
-| Read container/package registries | `read_registry` |
-| Push to repository or registry | `write_repository`, `write_registry` |
-| Full API access | `api` |
+| Clone or fetch source | `read_repository` |
+| Pull from a registry | `read_registry` |
+| Push to a repo or registry | `write_repository`, `write_registry` |
+| Call GitLab APIs | `api` |
 
-Prefer narrower scopes than `api` for generated tokens. Use `api` only when the consuming workload really needs GitLab API access beyond repository or registry reads/writes.
+Start narrow. `api` is convenient, but it is usually more than a deploy key, CI job, or sync process needs.
 
 ## Destination keys
 
-For secret stores that support structured secrets, the key controls where the generated token value is written:
+For Vault, `vaultKey` is the field Token Tumbler updates inside the KVv2 secret:
 
 ```yaml
 secretStore: vault
@@ -59,9 +59,9 @@ vaultPath: teams/example/project
 vaultKey: gitlab_token
 ```
 
-This writes only the `gitlab_token` field inside the Vault KVv2 secret at `kv/teams/example/project`. Other keys in the same secret are preserved.
+That writes `gitlab_token` under `kv/teams/example/project`. Other fields in the same secret stay untouched.
 
-For Kubernetes Secrets, use `k8sSecretKey`:
+For Kubernetes Secrets, the equivalent field is `k8sSecretKey`:
 
 ```yaml
 secretStore: k8s
@@ -70,27 +70,27 @@ k8sSecretName: gitlab-token
 k8sSecretKey: token
 ```
 
-## `glab` examples
+## `glab` checks
 
-Authenticate `glab` with the operator token you plan to use as `GITLAB_TOKEN`:
+Log in with the same token you plan to pass as `GITLAB_TOKEN`:
 
 ```sh
 glab auth login --hostname gitlab.example.com --token "$GITLAB_TOKEN"
 ```
 
-Check the authenticated user:
+Check which user the token belongs to:
 
 ```sh
 glab api user --hostname gitlab.example.com
 ```
 
-List project access tokens for a project target:
+List project access tokens:
 
 ```sh
 glab api "projects/group%2Fexample-project/access_tokens" --hostname gitlab.example.com
 ```
 
-Create a short-lived project access token manually to verify the operator token can manage project tokens:
+Create a short lived project token as a smoke test:
 
 ```sh
 glab api "projects/group%2Fexample-project/access_tokens" \
@@ -102,7 +102,7 @@ glab api "projects/group%2Fexample-project/access_tokens" \
   --field 'scopes[]=read_repository'
 ```
 
-For group targets, use the group access token endpoint:
+For a group target, use the group endpoint:
 
 ```sh
 glab api "groups/group%2Fexample-group/access_tokens" \
@@ -114,7 +114,7 @@ glab api "groups/group%2Fexample-group/access_tokens" \
   --field 'scopes[]=read_repository'
 ```
 
-Delete the smoke-test token afterwards. Use the token ID returned by the create/list command:
+Delete the smoke-test token afterwards. Replace `<token-id>` with the ID returned by the create or list command:
 
 ```sh
 glab api "projects/group%2Fexample-project/access_tokens/<token-id>" \
@@ -122,4 +122,4 @@ glab api "projects/group%2Fexample-project/access_tokens/<token-id>" \
   --method DELETE
 ```
 
-GitLab project and group paths must be URL-encoded in API paths. For example, `group/example-project` becomes `group%2Fexample-project`.
+GitLab paths in API URLs need URL encoding. `group/example-project` becomes `group%2Fexample-project`.

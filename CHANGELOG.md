@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [Unreleased]
+
+
+### Documentation
+
+- Document token permissions ([188994d](https://github.com/Nabsku/token-tumbler/commit/188994d890dff13ba4b6bb57df408c617447c28b))
 ## [1.1.5] - 2026-05-02
 
 

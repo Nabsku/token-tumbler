@@ -36,7 +36,7 @@ Each entry must define one target: either `repoName` or `groupName`.
 | `repoName`          | One of `repoName` or `groupName` | GitLab project path or ID.                                                           |
 | `groupName`         | One of `repoName` or `groupName` | GitLab group path or ID.                                                             |
 | `name`              | Yes                              | Logical token name used in generated GitLab token names.                             |
-| `permissions`       | Yes                              | Scopes for generated GitLab tokens, such as `read_repository` or `api`. See [Permissions and token keys](permissions.md). |
+| `permissions`       | Yes                              | Scopes for generated tokens, such as `read_repository` or `api`. See [Permissions and token keys](permissions.md). |
 | `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
 | `lifetime`          | Yes                              | Maximum lifetime for new tokens. Must be greater than `rotationThreshold`.           |
 | `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
