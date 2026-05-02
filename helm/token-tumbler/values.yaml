@@ -53,7 +53,8 @@ config:
     # - groupName: group/example-group
     #   name: test
     #   permissions:
-    #     - api
+    #     - read_repository
+    #   accessLevel: 20
     #   rotationThreshold: 3d
     #   lifetime: 5d
     #   secretStore: vault
@@ -206,10 +207,11 @@ livenessProbe:
   failureThreshold: 3
 
 # -- Metrics config.
-# The application exposes a Prometheus-compatible /metrics endpoint on :9090
-# and a /healthz endpoint for health checks.
+# The application exposes a Prometheus-compatible /metrics endpoint and /healthz
+# endpoint on its internal HTTP server. Disabling metrics below removes chart
+# exposure for that port; it does not turn off the application's internal server.
 metrics:
-  # -- Enable the metrics HTTP server inside the application.
+  # -- Expose metrics in the pod spec and related Kubernetes resources.
   enabled: true
   # -- Port for the metrics HTTP server.
   port: 9090

@@ -110,6 +110,16 @@ func TestConfig_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "repositories cannot be empty")
 	})
 
+	t.Run("rejects invalid access level", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.AccessLevel = gitlab.Ptr(99)
+
+		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "accessLevel must be one of")
+	})
+
 	t.Run("rejects missing target", func(t *testing.T) {
 		repo := validRepositoryConfig()
 		repo.RepoName = nil

@@ -17,6 +17,20 @@ tests:
           content:
             name: TOKEN_TUMBLER_LEADER_ELECTION_ENABLED
 
+  - it: marks TOKEN_TUMBLER_INTERVAL optional for existing secrets
+    set:
+      existingSecret: token-tumbler-env
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: TOKEN_TUMBLER_INTERVAL
+            valueFrom:
+              secretKeyRef:
+                name: token-tumbler-env
+                key: TOKEN_TUMBLER_INTERVAL
+                optional: true
+
   - it: renders leader election env and allows multiple replicas when enabled
     set:
       existingSecret: token-tumbler-env

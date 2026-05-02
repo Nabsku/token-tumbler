@@ -76,6 +76,7 @@ spec:
                 secretKeyRef:
                   name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
                   key: TOKEN_TUMBLER_INTERVAL
+                  optional: true
             {{- if .Values.leaderElection.enabled }}
             - name: TOKEN_TUMBLER_LEADER_ELECTION_ENABLED
               value: "true"

@@ -89,6 +89,10 @@ func persistToken(ctx context.Context, entry *repository.Repository, secret secr
 			if restoreErr := secret.Write(ctx, oldValue); restoreErr != nil {
 				return fmt.Errorf("writing metadata failed and unable to restore previous token: %w (restore error: %v)", err, restoreErr)
 			}
+		} else if cleaner, ok := secret.(interface{ DeleteCreatedSecret(context.Context) error }); ok {
+			if cleanupErr := cleaner.DeleteCreatedSecret(ctx); cleanupErr != nil {
+				return fmt.Errorf("writing metadata failed and unable to delete newly created token secret: %w (cleanup error: %v)", err, cleanupErr)
+			}
 		}
 		return fmt.Errorf("writing metadata: %w", err)
 	}

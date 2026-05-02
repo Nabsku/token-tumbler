@@ -71,6 +71,13 @@ jobs:
           VERSION=${GITHUB_REF_NAME#v}
           yq e ".version = \"$VERSION\" | .appVersion = \"$VERSION\"" -i helm/token-tumbler/Chart.yaml
 
+      - name: Check released application image
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker run --rm "ghcr.io/${OWNER}/token-tumbler:${VERSION}" --version
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.12.0
 
@@ -81,16 +88,24 @@ jobs:
       - name: Test Helm deployment in kind
         run: |
           set +e
+          VERSION=${GITHUB_REF_NAME#v}
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           helm upgrade --install token-tumbler helm/token-tumbler \
             --namespace token-tumbler \
             --wait \
             --timeout 2m \
-            --set image.repository=registry.k8s.io/e2e-test-images/busybox \
-            --set image.tag=1.29-4 \
-            --set-json command='["sh"]' \
-            --set-json args='["-c","sleep 3600"]' \
+            --set image.repository="ghcr.io/${OWNER}/token-tumbler" \
+            --set image.tag="${VERSION}" \
             --set env.gitlabToken=dummy-token \
-            --set env.gitlabUrl=https://gitlab.example.com
+            --set env.gitlabUrl=https://gitlab.example.com \
+            --set config.repositories[0].repoName=group/example-project \
+            --set config.repositories[0].name=deploy \
+            --set config.repositories[0].permissions[0]=read_repository \
+            --set config.repositories[0].accessLevel=20 \
+            --set config.repositories[0].rotationThreshold=3d \
+            --set config.repositories[0].lifetime=5d \
+            --set config.repositories[0].gracePeriod=2d \
+            --set config.repositories[0].secretStore=none
           status=$?
           if [ "$status" -ne 0 ]; then
             kubectl get all --namespace token-tumbler

@@ -4,23 +4,30 @@ This chart runs Token Tumbler as a Kubernetes worker that rotates GitLab project
 
 ## Install
 
+From GHCR OCI:
+
+```sh
+helm install token-tumbler oci://ghcr.io/nabsku/charts/token-tumbler \
+  --version <version> \
+  -f values.yaml
+```
+
 From a local checkout:
 
 ```sh
 helm install token-tumbler ./helm/token-tumbler \
-  --set env.gitlabUrl="https://gitlab.example.com" \
-  --set env.gitlabToken="glpat-..."
+  -f values.yaml
 ```
 
-For production, avoid passing secrets with `--set`. Create a Kubernetes Secret, or use an external secrets operator, and point the chart at it with `existingSecret`.
+For production, avoid passing secrets with `--set` or committing them to values files. Create a Kubernetes Secret, or use an external secrets operator, and point the chart at it with `existingSecret`. When `existingSecret` is set, keep `env.gitlabToken` out of `values.yaml`; use the values file for non-secret `config` only.
 
 ```sh
 kubectl create secret generic token-tumbler-env \
   --from-literal=GITLAB_URL="https://gitlab.example.com" \
-  --from-literal=GITLAB_TOKEN="glpat-..." \
-  --from-literal=TOKEN_TUMBLER_INTERVAL="5m"
+  --from-literal=GITLAB_TOKEN="glpat-..."
 
 helm install token-tumbler ./helm/token-tumbler \
+  -f values.yaml \
   --set existingSecret=token-tumbler-env
 ```
 
@@ -39,7 +46,8 @@ config:
     - repoName: group/example-project
       name: deploy
       permissions:
-        - api
+        - read_repository
+      accessLevel: 20
       rotationThreshold: 3d
       lifetime: 5d
       gracePeriod: 2d
@@ -72,6 +80,8 @@ Metrics are enabled by default on port `9090` and expose:
 
 If you use the Prometheus Operator, enable `metrics.serviceMonitor.enabled`.
 
+`metrics.enabled: false` removes the chart's metrics port, Service, ServiceMonitor, and `TOKEN_TUMBLER_METRICS_ADDR` override. The app still starts its internal HTTP server on the default `:9090`; do not expose that port if you want metrics unavailable in Kubernetes.
+
 ```yaml
 metrics:
   enabled: true
@@ -99,7 +109,8 @@ config:
     - repoName: group/example-project
       name: deploy
       permissions:
-        - api
+        - read_repository
+      accessLevel: 20
       rotationThreshold: 3d
       lifetime: 5d
       gracePeriod: 2d

@@ -10,7 +10,10 @@ repositories:
     name: deploy
     # GitLab access token scopes for replacement tokens.
     permissions:
-      - api
+      - read_repository
+    # GitLab role for generated tokens: 10 Guest, 20 Reporter, 30 Developer,
+    # 40 Maintainer, 50 Owner. Omit this to let GitLab choose its default.
+    accessLevel: 20
     # Rotate when the current token has this much lifetime, or less, remaining.
     rotationThreshold: 3d
     # Lifetime for new GitLab access tokens.
@@ -26,7 +29,8 @@ repositories:
   - repoName: group/example-project
     name: deploy
     permissions:
-      - api
+      - read_repository
+    accessLevel: 20
     rotationThreshold: 3d
     lifetime: 5d
     secretStore: vault

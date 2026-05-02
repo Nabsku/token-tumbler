@@ -83,6 +83,7 @@ type (
 		GroupName         *string   `yaml:"groupName,omitempty"`
 		Name              string    `yaml:"name"`
 		Permissions       []string  `yaml:"permissions"`
+		AccessLevel       *int      `yaml:"accessLevel,omitempty"`
 		RotationThreshold *Duration `yaml:"rotationThreshold"`
 		GracePeriod       *Duration `yaml:"gracePeriod"`
 		Lifetime          Duration  `yaml:"lifetime"`
@@ -193,6 +194,9 @@ func (r *Repository) Validate() error {
 	if len(r.Permissions) == 0 {
 		return fmt.Errorf("%w: permissions are required", ErrInvalidRepositoryConfig)
 	}
+	if err := r.validateAccessLevel(); err != nil {
+		return err
+	}
 	if r.RotationThreshold == nil {
 		return fmt.Errorf("%w: rotationThreshold is required", ErrInvalidRepositoryConfig)
 	}
@@ -215,6 +219,18 @@ func (r *Repository) Validate() error {
 		return err
 	}
 	return r.CheckKeyRotationAndTokenAge()
+}
+
+func (r *Repository) validateAccessLevel() error {
+	if r.AccessLevel == nil {
+		return nil
+	}
+	switch *r.AccessLevel {
+	case 10, 20, 30, 40, 50:
+		return nil
+	default:
+		return fmt.Errorf("%w: accessLevel must be one of 10, 20, 30, 40, or 50", ErrInvalidRepositoryConfig)
+	}
 }
 
 func (r *Repository) validateDurations() error {

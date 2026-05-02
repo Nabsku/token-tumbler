@@ -6,6 +6,7 @@ Token Tumbler uses one token to do the rotating, then creates other tokens for y
 | --- | --- | --- |
 | `GITLAB_TOKEN` | The token Token Tumbler runs with. It lists existing project or group access tokens, creates new ones, and deletes old ones. | Use a bot or service account token with `api`. Give that account access only to the projects or groups in your config. |
 | `config.repositories[].permissions` | The scopes on the tokens Token Tumbler creates. | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access. |
+| `config.repositories[].accessLevel` | The GitLab role on the tokens Token Tumbler creates. | Set the lowest role that works. `30` means Developer. Omit it to use GitLab's default. |
 | `vaultKey`, `k8sSecretKey`, or `filePath` | Where Token Tumbler writes the new token value. | Use the key or path your app already reads, for example `gitlab_token` or `token`. |
 
 ## `GITLAB_TOKEN`
@@ -28,6 +29,7 @@ repositories:
     name: deploy
     permissions:
       - read_repository
+    accessLevel: 20
     rotationThreshold: 3d
     lifetime: 5d
     gracePeriod: 2d
@@ -47,6 +49,20 @@ Some common choices:
 | Call GitLab APIs | `api` |
 
 Start narrow. `api` is convenient, but it is usually more than a deploy key, CI job, or sync process needs.
+
+## Access level for generated tokens
+
+`accessLevel` maps to GitLab's role numbers:
+
+| Value | Role |
+| --- | --- |
+| `10` | Guest |
+| `20` | Reporter |
+| `30` | Developer |
+| `40` | Maintainer |
+| `50` | Owner |
+
+Use the lowest role that still lets the consuming app work. For many read-only jobs, `20` with `read_repository` is enough. GitLab may reject roles that are not allowed for a project or group token on your plan or target type.
 
 ## Destination keys
 

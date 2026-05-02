@@ -13,9 +13,10 @@ import (
 )
 
 type AWSSecret struct {
-	SecretName string
-	Region     string
-	Client     *secretsmanager.Client
+	SecretName        string
+	Region            string
+	Client            *secretsmanager.Client
+	createdSecretName string
 }
 
 func (as *AWSSecret) InitClient(ctx context.Context) error {
@@ -74,9 +75,37 @@ func (as *AWSSecret) Write(ctx context.Context, value string) error {
 		SecretString: aws.String(value),
 	})
 	if err != nil {
+		var notFound *types.ResourceNotFoundException
+		if errors.As(err, &notFound) {
+			_, createErr := as.Client.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
+				Name:         aws.String(secretName),
+				SecretString: aws.String(value),
+			})
+			if createErr != nil {
+				return fmt.Errorf("creating AWS secret %s: %w", secretName, createErr)
+			}
+			as.createdSecretName = secretName
+			return nil
+		}
 		return fmt.Errorf("writing AWS secret %s: %w", secretName, err)
 	}
 
+	return nil
+}
+
+func (as *AWSSecret) DeleteCreatedSecret(ctx context.Context) error {
+	secretName := strings.TrimSpace(as.createdSecretName)
+	if secretName == "" {
+		return nil
+	}
+	_, err := as.Client.DeleteSecret(ctx, &secretsmanager.DeleteSecretInput{
+		SecretId:                   aws.String(secretName),
+		ForceDeleteWithoutRecovery: aws.Bool(true),
+	})
+	if err != nil {
+		return fmt.Errorf("deleting newly created AWS secret %s: %w", secretName, err)
+	}
+	as.createdSecretName = ""
 	return nil
 }
 
@@ -138,6 +167,17 @@ func (as *AWSSecret) WriteMetadata(ctx context.Context, meta TokenMetadata) erro
 		SecretString: aws.String(data),
 	})
 	if err != nil {
+		var notFound *types.ResourceNotFoundException
+		if errors.As(err, &notFound) {
+			_, createErr := as.Client.CreateSecret(ctx, &secretsmanager.CreateSecretInput{
+				Name:         aws.String(metaName),
+				SecretString: aws.String(data),
+			})
+			if createErr != nil {
+				return fmt.Errorf("creating AWS metadata secret %s: %w", metaName, createErr)
+			}
+			return nil
+		}
 		return fmt.Errorf("writing AWS metadata secret %s: %w", metaName, err)
 	}
 	return nil

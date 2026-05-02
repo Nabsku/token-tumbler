@@ -10,7 +10,8 @@ repositories:
   - repoName: group/example-project
     name: deploy
     permissions:
-      - api
+      - read_repository
+    accessLevel: 20
     rotationThreshold: 3d
     lifetime: 5d
     gracePeriod: 2d
@@ -37,6 +38,7 @@ Each entry must define one target: either `repoName` or `groupName`.
 | `groupName`         | One of `repoName` or `groupName` | GitLab group path or ID.                                                             |
 | `name`              | Yes                              | Logical token name used in generated GitLab token names.                             |
 | `permissions`       | Yes                              | Scopes for generated tokens, such as `read_repository` or `api`. See [Permissions and token keys](permissions.md). |
+| `accessLevel`       | No                               | GitLab role for generated tokens: `10` Guest, `20` Reporter, `30` Developer, `40` Maintainer, `50` Owner. Omit it to use GitLab's default. |
 | `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
 | `lifetime`          | Yes                              | Maximum lifetime for new tokens. Must be greater than `rotationThreshold`.           |
 | `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
@@ -80,6 +82,7 @@ Token targets must be unique by `prefix`, target type (`repoName` or `groupName`
 | `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke configured project/group access tokens. See [Permissions and token keys](permissions.md). |
 | `TOKEN_TUMBLER_INTERVAL` | No | Polling interval. Defaults to `5m`. Uses Go duration syntax (`30s`, `5m`, `1h`). |
 | `TOKEN_TUMBLER_METRICS_ADDR` | No | Metrics and health server bind address. Defaults to `:9090`. |
+| `VAULT_ADDR` | Vault only | Vault server URL, for example `https://vault.example.com`. |
 | `APPROLE_ID` | Vault AppRole only | Vault AppRole role ID. |
 | `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
 | `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
@@ -101,6 +104,7 @@ The daemon validates configuration on startup and exits if:
 - The prefix contains invalid characters
 - No repositories are defined
 - Any repository is missing required fields
+- `accessLevel` is set to anything except `10`, `20`, `30`, `40`, or `50`
 - Duration values are invalid or inconsistent (e.g., `rotationThreshold` >= `lifetime`)
 - Secret store configuration is incomplete
 - Duplicate token targets exist

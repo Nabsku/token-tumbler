@@ -16,14 +16,17 @@ func TestCreateGroupAccessTokenOptions(t *testing.T) {
 	expiry := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	scopes := []string{"api", "read_registry"}
 
-	opts := createGroupAccessTokenOptions("tt-group-2026", scopes, &expiry)
+	accessLevel := 30
+	opts := createGroupAccessTokenOptions("tt-group-2026", scopes, &accessLevel, &expiry)
 
 	require.NotNil(t, opts)
 	require.NotNil(t, opts.Name)
 	require.NotNil(t, opts.Scopes)
 	require.NotNil(t, opts.ExpiresAt)
+	require.NotNil(t, opts.AccessLevel)
 	assert.Equal(t, "tt-group-2026", *opts.Name)
 	assert.Equal(t, scopes, *opts.Scopes)
+	assert.Equal(t, gitlab.DeveloperPermissions, *opts.AccessLevel)
 	assert.True(t, time.Time(*opts.ExpiresAt).Equal(expiry))
 }
 

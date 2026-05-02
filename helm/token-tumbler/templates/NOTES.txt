@@ -4,10 +4,10 @@
 2. Verify the ConfigMap contains your repositories:
   kubectl get configmap {{ include "token-tumbler.fullname" . }} -o yaml
 
-3. The application requires the following environment variables to be set:
+3. The application reads these environment variables from the Secret:
    - GITLAB_TOKEN
    - GITLAB_URL
-   - TOKEN_TUMBLER_INTERVAL (default: 5m)
+   - TOKEN_TUMBLER_INTERVAL (optional, default: 5m)
    - APPROLE_ID (if using Vault)
    - APPROLE_SECRET (if using Vault)
 
@@ -15,7 +15,7 @@
 
 {{- if .Values.autoscaling.enabled }}
 
-WARNING: HorizontalPodAutoscaler is enabled. token-tumbler runs on an internal ticker
-and does not implement leader election. Running multiple replicas may cause concurrent
-token rotations. Consider disabling autoscaling unless you add leader-election logic.
+WARNING: HorizontalPodAutoscaler is enabled. Keep leaderElection.enabled=true when
+running more than one replica. Without leader election, replicas can rotate the same
+token at the same time.
 {{- end }}

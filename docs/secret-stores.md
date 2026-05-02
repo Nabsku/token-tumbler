@@ -30,6 +30,7 @@ vaultKey: gitlab_token
 
 Environment variables:
 
+- `VAULT_ADDR` - Vault server URL, for example `https://vault.example.com`
 - `APPROLE_ID` - Vault AppRole role ID
 - `APPROLE_SECRET` - Vault AppRole secret ID
 
@@ -47,6 +48,7 @@ vaultKey: gitlab_token
 
 Environment variables:
 
+- `VAULT_ADDR` - Vault server URL, for example `https://vault.example.com`
 - `VAULT_TOKEN` - Direct Vault token
 
 ### Kubernetes auth
@@ -64,6 +66,7 @@ vaultKey: gitlab_token
 
 Environment variables:
 
+- `VAULT_ADDR` - Vault server URL, for example `https://vault.example.com`
 - `VAULT_K8S_TOKEN_PATH` - Optional path to Kubernetes service account token. Defaults to in-cluster path.
 
 The Kubernetes auth method reads the service account token from the standard Kubernetes location (`/var/run/secrets/kubernetes.io/serviceaccount/token`) unless overridden.
@@ -81,7 +84,7 @@ vaultPath: teams/example/project
 vaultKey: gitlab_token
 ```
 
-No extra environment variables are required. The AWS auth method uses the standard AWS credential chain, including environment variables and IAM instance profiles.
+Set `VAULT_ADDR` to the Vault server URL. The AWS auth method uses the standard AWS credential chain, including environment variables and IAM instance profiles.
 
 ### Merge behavior
 
@@ -129,7 +132,9 @@ No extra config is required beyond working AWS credentials.
 ### Behavior
 
 - Creates a new secret version on each write
-- The secret must already exist in AWS Secrets Manager
+- Creates the main secret if it does not exist
+- Stores token metadata in a second secret named `<awsSecretName>-meta`, and creates it if it does not exist
+- Needs IAM permissions for both names: `secretsmanager:GetSecretValue`, `secretsmanager:PutSecretValue`, and `secretsmanager:CreateSecret`
 - Uses the AWS SDK for Go v2
 
 ## Kubernetes Secrets

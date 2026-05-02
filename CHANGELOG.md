@@ -9,6 +9,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Documentation
 
+- Refine token permission guidance ([1c26dde](https://github.com/Nabsku/token-tumbler/commit/1c26dde6d35c4daa24390803a80baeb05798fa1b))
+
 - Document token permissions ([188994d](https://github.com/Nabsku/token-tumbler/commit/188994d890dff13ba4b6bb57df408c617447c28b))
 ## [1.1.5] - 2026-05-02
 

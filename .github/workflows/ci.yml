@@ -6,8 +6,6 @@ on:
       - 'helm/**'
       - '.github/workflows/release.yml'
       - '.github/workflows/helm-ci.yml'
-      - 'docs/**'
-      - '*.md'
   push:
     branches:
       - main
@@ -16,8 +14,6 @@ on:
       - 'helm/**'
       - '.github/workflows/release.yml'
       - '.github/workflows/helm-ci.yml'
-      - 'docs/**'
-      - '*.md'
 
 permissions:
   contents: read

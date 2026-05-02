@@ -32,7 +32,7 @@ jobs:
           version: latest
 
       - name: Install helm-unittest
-        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.2
 
       - name: Run Helm lint
         run: helm lint helm/token-tumbler

@@ -92,6 +92,8 @@ type mockSecretStore struct {
 	writeMetaErr   error
 	readMetaValue  secrets.TokenMetadata
 	readMetaErr    error
+	cleanupCalls   int
+	cleanupErr     error
 }
 
 func (m *mockSecretStore) Read(_ context.Context) (string, error) {
@@ -119,6 +121,11 @@ func (m *mockSecretStore) WriteMetadata(_ context.Context, _ secrets.TokenMetada
 	return m.writeMetaErr
 }
 
+func (m *mockSecretStore) DeleteCreatedSecret(_ context.Context) error {
+	m.cleanupCalls++
+	return m.cleanupErr
+}
+
 func TestPersistToken(t *testing.T) {
 	t.Run("returns nil when secret store is nil", func(t *testing.T) {
 		err := persistToken(context.Background(), nil, nil, "token", secrets.TokenMetadata{})
@@ -130,6 +137,18 @@ func TestPersistToken(t *testing.T) {
 		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "writing token")
+		assert.Equal(t, []string{"new-token"}, mock.writeCalls)
+	})
+
+	t.Run("cleans up newly created secret when metadata write fails after read failed", func(t *testing.T) {
+		mock := &mockSecretStore{
+			readErr:      fmt.Errorf("not found"),
+			writeMetaErr: fmt.Errorf("metadata failed"),
+		}
+		err := persistToken(context.Background(), nil, mock, "new-token", secrets.TokenMetadata{})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "writing metadata")
+		assert.Equal(t, 1, mock.cleanupCalls)
 		assert.Equal(t, []string{"new-token"}, mock.writeCalls)
 	})
 
