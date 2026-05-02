@@ -112,12 +112,42 @@ func TestConfig_Validate(t *testing.T) {
 
 	t.Run("rejects invalid access level", func(t *testing.T) {
 		repo := validRepositoryConfig()
-		repo.AccessLevel = gitlab.Ptr(99)
+		repo.AccessLevel = gitlab.Ptr("admin")
 
 		err := (&Config{Prefix: "tt", Repos: []Repository{repo}}).Validate()
 
 		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
 		assert.Contains(t, err.Error(), "accessLevel must be one of")
+	})
+
+	t.Run("maps access level names to GitLab enum values", func(t *testing.T) {
+		repo := validRepositoryConfig()
+		repo.AccessLevel = gitlab.Ptr(" Developer ")
+
+		level := repo.GitLabAccessLevel()
+
+		require.NotNil(t, level)
+		assert.Equal(t, gitlab.DeveloperPermissions, *level)
+	})
+
+	t.Run("rejects nested target with both gitlab path and id", func(t *testing.T) {
+		cfg := &Config{Token: TokenConfig{Prefix: "tt"}, Targets: []Target{validTargetConfig()}}
+		cfg.Targets[0].GitLab.ID = "12345"
+
+		err := cfg.Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "define either gitlab.path or gitlab.id")
+	})
+
+	t.Run("rejects nested target without gitlab path or id", func(t *testing.T) {
+		cfg := &Config{Token: TokenConfig{Prefix: "tt"}, Targets: []Target{validTargetConfig()}}
+		cfg.Targets[0].GitLab.Path = ""
+
+		err := cfg.Validate()
+
+		require.ErrorIs(t, err, ErrInvalidRepositoryConfig)
+		assert.Contains(t, err.Error(), "gitlab.path or gitlab.id is required")
 	})
 
 	t.Run("rejects missing target", func(t *testing.T) {
@@ -653,5 +683,25 @@ func validRepositoryConfig() Repository {
 		VaultPath:         gitlab.Ptr("path"),
 		VaultKey:          gitlab.Ptr("key"),
 		Mount:             gitlab.Ptr("kv"),
+	}
+}
+
+func validTargetConfig() Target {
+	return Target{
+		Name: "token",
+		GitLab: TargetGitLab{
+			Type: "project",
+			Path: "service",
+		},
+		GeneratedToken: GeneratedTokenConfig{
+			Scopes:      []string{"read_repository"},
+			AccessLevel: gitlab.Ptr("reporter"),
+			Lifetime:    Duration{Duration: 48 * time.Hour},
+		},
+		Rotation: RotationConfig{
+			Threshold:   &Duration{Duration: 24 * time.Hour},
+			GracePeriod: &Duration{Duration: 0},
+		},
+		Destination: DestinationConfig{Type: "none"},
 	}
 }

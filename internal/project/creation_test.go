@@ -16,7 +16,7 @@ func TestCreateProjectAccessTokenOptions(t *testing.T) {
 	expiry := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	scopes := []string{"api", "read_repository"}
 
-	accessLevel := 30
+	accessLevel := gitlab.DeveloperPermissions
 	opts := createProjectAccessTokenOptions("tt-service-2026", scopes, &accessLevel, &expiry)
 
 	require.NotNil(t, opts)

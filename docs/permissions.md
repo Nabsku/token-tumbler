@@ -5,38 +5,44 @@ Token Tumbler uses one token to do the rotating, then creates other tokens for y
 | Setting | Meaning | Use |
 | --- | --- | --- |
 | `GITLAB_TOKEN` | The token Token Tumbler runs with. It lists existing project or group access tokens, creates new ones, and deletes old ones. | Use a bot or service account token with `api`. Give that account access only to the projects or groups in your config. |
-| `config.repositories[].permissions` | The scopes on the tokens Token Tumbler creates. | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access. |
-| `config.repositories[].accessLevel` | The GitLab role on the tokens Token Tumbler creates. | Set the lowest role that works. `30` means Developer. Omit it to use GitLab's default. |
-| `vaultKey`, `k8sSecretKey`, or `filePath` | Where Token Tumbler writes the new token value. | Use the key or path your app already reads, for example `gitlab_token` or `token`. |
+| `targets[].generatedToken.scopes` | The scopes on the tokens Token Tumbler creates. | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access. |
+| `targets[].generatedToken.accessLevel` | The GitLab role on the tokens Token Tumbler creates. | Set the lowest role that works, such as `reporter`. Omit it to use GitLab's default. |
+| `destination.vault.key`, `destination.kubernetesSecret.key`, or `destination.file.path` | Where Token Tumbler writes the new token value. | Use the key or path your app already reads, for example `gitlab_token` or `token`. |
 
 ## `GITLAB_TOKEN`
 
 `GITLAB_TOKEN` needs enough access to manage tokens for every target in `config.yaml`:
 
-- `repoName` targets: the token owner needs Maintainer or Owner on the project.
-- `groupName` targets: the token owner needs Owner on the group.
+- `gitlab.type: project` targets: the token owner needs Maintainer or Owner on the project.
+- `gitlab.type: group` targets: the token owner needs Owner on the group.
 - The token needs the `api` scope. GitLab's token management API requires it.
 
 Use a dedicated bot or service account if you can. A human PAT works, but it is harder to audit and easier to over-permission by accident.
 
 ## Scopes for generated tokens
 
-The `permissions` field is for the tokens Token Tumbler creates, not for `GITLAB_TOKEN` itself:
+The `generatedToken.scopes` field is for the tokens Token Tumbler creates, not for `GITLAB_TOKEN` itself:
 
 ```yaml
-repositories:
-  - repoName: group/example-project
-    name: deploy
-    permissions:
-      - read_repository
-    accessLevel: 20
-    rotationThreshold: 3d
-    lifetime: 5d
-    gracePeriod: 2d
-    secretStore: vault
-    vaultMount: kv
-    vaultPath: teams/example/project
-    vaultKey: gitlab_token
+targets:
+  - name: deploy
+    gitlab:
+      type: project
+      path: group/example-project
+    generatedToken:
+      scopes:
+        - read_repository
+      accessLevel: reporter
+      lifetime: 5d
+    rotation:
+      threshold: 3d
+      gracePeriod: 2d
+    destination:
+      type: vault
+      vault:
+        mount: kv
+        path: teams/example/project
+        key: gitlab_token
 ```
 
 Some common choices:
@@ -52,38 +58,42 @@ Start narrow. `api` is convenient, but it is usually more than a deploy key, CI 
 
 ## Access level for generated tokens
 
-`accessLevel` maps to GitLab's role numbers:
+`accessLevel` maps to GitLab's access level enum:
 
-| Value | Role |
+| Value | GitLab role |
 | --- | --- |
-| `10` | Guest |
-| `20` | Reporter |
-| `30` | Developer |
-| `40` | Maintainer |
-| `50` | Owner |
+| `guest` | Guest |
+| `reporter` | Reporter |
+| `developer` | Developer |
+| `maintainer` | Maintainer |
+| `owner` | Owner |
 
-Use the lowest role that still lets the consuming app work. For many read-only jobs, `20` with `read_repository` is enough. GitLab may reject roles that are not allowed for a project or group token on your plan or target type.
+Use the lowest role that still lets the consuming app work. For many read-only jobs, `reporter` with `read_repository` is enough. GitLab may reject roles that are not allowed for a project or group token on your plan or target type.
 
 ## Destination keys
 
-For Vault, `vaultKey` is the field Token Tumbler updates inside the KVv2 secret:
+For Vault, `destination.vault.key` is the field Token Tumbler updates inside the KVv2 secret:
 
 ```yaml
-secretStore: vault
-vaultMount: kv
-vaultPath: teams/example/project
-vaultKey: gitlab_token
+destination:
+  type: vault
+  vault:
+    mount: kv
+    path: teams/example/project
+    key: gitlab_token
 ```
 
 That writes `gitlab_token` under `kv/teams/example/project`. Other fields in the same secret stay untouched.
 
-For Kubernetes Secrets, the equivalent field is `k8sSecretKey`:
+For Kubernetes Secrets, the equivalent field is `destination.kubernetesSecret.key`:
 
 ```yaml
-secretStore: k8s
-k8sNamespace: default
-k8sSecretName: gitlab-token
-k8sSecretKey: token
+destination:
+  type: kubernetesSecret
+  kubernetesSecret:
+    namespace: default
+    name: gitlab-token
+    key: token
 ```
 
 ## `glab` checks

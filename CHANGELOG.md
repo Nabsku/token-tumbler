@@ -4,7 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
-## [Unreleased]
+## [1.1.6] - 2026-05-02
+
+
+### Bug fixes
+
+- Address publication readiness gaps ([e376d9b](https://github.com/Nabsku/token-tumbler/commit/e376d9b79fe835e5ec80ea83d0f809dda0c87411))
 
 
 ### Documentation

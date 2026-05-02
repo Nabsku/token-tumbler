@@ -62,20 +62,27 @@ cp config.example.yaml config.yaml
 Then edit the targets and secret store paths for your environment:
 
 ```yaml
-prefix: tt-
-repositories:
-  - repoName: group/example-project
-    name: deploy
-    permissions:
-      - read_repository
-    accessLevel: 20 # Reporter
-    rotationThreshold: 3d
-    lifetime: 5d
-    gracePeriod: 2d
-    secretStore: vault
-    vaultMount: kv
-    vaultPath: teams/example/project
-    vaultKey: gitlab_token
+token:
+  prefix: tt-
+targets:
+  - name: deploy
+    gitlab:
+      type: project
+      path: group/example-project
+    generatedToken:
+      scopes:
+        - read_repository
+      accessLevel: reporter
+      lifetime: 5d
+    rotation:
+      threshold: 3d
+      gracePeriod: 2d
+    destination:
+      type: vault
+      vault:
+        mount: kv
+        path: teams/example/project
+        key: gitlab_token
 ```
 
 Run the daemon:
@@ -162,24 +169,32 @@ Create a small values file, then install the published chart:
 ```yaml
 # values.yaml
 env:
-  gitlabUrl: https://gitlab.example.com
   gitlabToken: glpat-...
 
 config:
-  prefix: tt-
-  repositories:
-    - repoName: group/example-project
-      name: deploy
-      permissions:
-        - read_repository
-      accessLevel: 20
-      rotationThreshold: 3d
-      lifetime: 5d
-      gracePeriod: 2d
-      secretStore: vault
-      vaultMount: kv
-      vaultPath: teams/example/project
-      vaultKey: gitlab_token
+  gitlab:
+    url: https://gitlab.example.com
+  token:
+    prefix: tt-
+  targets:
+    - name: deploy
+      gitlab:
+        type: project
+        path: group/example-project
+      generatedToken:
+        scopes:
+          - read_repository
+        accessLevel: reporter
+        lifetime: 5d
+      rotation:
+        threshold: 3d
+        gracePeriod: 2d
+      destination:
+        type: vault
+        vault:
+          mount: kv
+          path: teams/example/project
+          key: gitlab_token
 ```
 
 ```sh
@@ -195,20 +210,20 @@ helm install token-tumbler ./helm/token-tumbler \
   -f values.yaml
 ```
 
-For production, use `existingSecret` or an external secrets operator instead of passing secrets with `--set`. Keep `replicaCount: 1` unless `leaderElection.enabled=true`. The chart refuses to render unsafe multi-replica settings without leader election. See the [Helm chart README](helm/token-tumbler/README.md).
+For production, use `config.gitlab.url` for the non-secret GitLab URL and `existingSecret` or an external secrets operator for `GITLAB_TOKEN`. Keep `replicaCount: 1` unless `leaderElection.enabled=true`. The chart refuses to render unsafe multi-replica settings without leader election. See the [Helm chart README](helm/token-tumbler/README.md).
 
 ## Environment variables
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `GITLAB_URL` | Yes | GitLab base URL, for example `https://gitlab.example.com`. |
+| `GITLAB_URL` | No | GitLab base URL, for example `https://gitlab.example.com`. Required only when `gitlab.url` is not set in config. |
 | `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke project/group access tokens. Grant only the minimum permissions needed for configured targets. |
 | `TOKEN_TUMBLER_INTERVAL` | No | Polling interval. Defaults to `5m`. Uses Go duration syntax only, such as `30s`, `5m`, or `1h`. |
 | `TOKEN_TUMBLER_METRICS_ADDR` | No | Metrics and health server bind address. Defaults to `:9090`. |
 | `VAULT_ADDR` | Vault only | Vault server URL, for example `https://vault.example.com`. |
 | `APPROLE_ID` | Vault AppRole only | Vault AppRole role ID. |
 | `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
-| `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
+| `VAULT_TOKEN` | Vault token auth only | Vault token for `destination.vault.auth.method: token`. |
 | `VAULT_K8S_TOKEN_PATH` | No | Optional service-account token path override for Vault Kubernetes auth. |
 | `TOKEN_TUMBLER_LEADER_ELECTION_ENABLED` | No | Enables Kubernetes leader election with Lease objects. Defaults to `false`. |
 | `TOKEN_TUMBLER_LEADER_ELECTION_NAMESPACE` | Leader election only | Namespace containing the Lease. The Helm chart sets this from the pod namespace. |
@@ -218,7 +233,7 @@ For production, use `existingSecret` or an external secrets operator instead of 
 | `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
 | `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
 
-Config durations such as `rotationThreshold`, `lifetime`, and `gracePeriod` support `s`, `m`, `h`, `d`, `w`, and `M`. `TOKEN_TUMBLER_INTERVAL` is different because it uses Go's `time.ParseDuration`; use `s`, `m`, or `h` there.
+Config durations such as `rotation.threshold`, `generatedToken.lifetime`, and `rotation.gracePeriod` support `s`, `m`, `h`, `d`, `w`, and `M`. `TOKEN_TUMBLER_INTERVAL` is different because it uses Go's `time.ParseDuration`; use `s`, `m`, or `h` there.
 
 ## Documentation
 

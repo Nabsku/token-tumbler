@@ -6,6 +6,4 @@ metadata:
     {{- include "token-tumbler.labels" . | nindent 4 }}
 data:
   config.yaml: |
-    prefix: {{ .Values.config.prefix | quote }}
-    repositories:
-      {{- toYaml .Values.config.repositories | nindent 6 }}
+{{- toYaml .Values.config | nindent 4 }}

@@ -71,6 +71,7 @@ spec:
                 secretKeyRef:
                   name: {{ if .Values.existingSecret }}{{ .Values.existingSecret }}{{ else }}{{ include "token-tumbler.fullname" . }}{{ end }}
                   key: GITLAB_URL
+                  optional: true
             - name: TOKEN_TUMBLER_INTERVAL
               valueFrom:
                 secretKeyRef:

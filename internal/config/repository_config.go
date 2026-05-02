@@ -29,6 +29,11 @@ func ReadRepositoryConfig(filename string) (*repository.Config, error) {
 	if err := repoConfig.Validate(); err != nil {
 		return nil, err
 	}
+	if gitlabURL := strings.TrimSpace(repoConfig.GitLab.URL); gitlabURL != "" && strings.TrimSpace(os.Getenv("GITLAB_URL")) == "" {
+		if err := os.Setenv("GITLAB_URL", gitlabURL); err != nil {
+			return nil, fmt.Errorf("setting GITLAB_URL from config: %w", err)
+		}
+	}
 
 	return &repoConfig, nil
 }

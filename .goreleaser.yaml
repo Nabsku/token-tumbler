@@ -34,6 +34,9 @@ archives:
       - goos: windows
         formats:
           - zip
+    files:
+      - config.example.yaml
+      - config.schema.json
 
 checksum:
   name_template: checksums.txt

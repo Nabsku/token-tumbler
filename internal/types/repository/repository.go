@@ -75,15 +75,75 @@ func (d *Duration) ToDuration() time.Duration {
 
 type (
 	Config struct {
-		Repos  []Repository `yaml:"repositories"`
-		Prefix string       `yaml:"prefix"`
+		GitLab  GitLabConfig `yaml:"gitlab,omitempty"`
+		Token   TokenConfig  `yaml:"token"`
+		Targets []Target     `yaml:"targets"`
+
+		Repos  []Repository `yaml:"-"`
+		Prefix string       `yaml:"-"`
+	}
+	GitLabConfig struct {
+		URL string `yaml:"url,omitempty"`
+	}
+	TokenConfig struct {
+		Prefix string `yaml:"prefix"`
+	}
+	Target struct {
+		Name           string               `yaml:"name"`
+		GitLab         TargetGitLab         `yaml:"gitlab"`
+		GeneratedToken GeneratedTokenConfig `yaml:"generatedToken"`
+		Rotation       RotationConfig       `yaml:"rotation"`
+		Destination    DestinationConfig    `yaml:"destination"`
+	}
+	TargetGitLab struct {
+		Type string `yaml:"type"`
+		Path string `yaml:"path,omitempty"`
+		ID   string `yaml:"id,omitempty"`
+	}
+	GeneratedTokenConfig struct {
+		Scopes      []string `yaml:"scopes"`
+		AccessLevel *string  `yaml:"accessLevel,omitempty"`
+		Lifetime    Duration `yaml:"lifetime"`
+	}
+	RotationConfig struct {
+		Threshold   *Duration `yaml:"threshold"`
+		GracePeriod *Duration `yaml:"gracePeriod"`
+	}
+	DestinationConfig struct {
+		Type              string                        `yaml:"type"`
+		Vault             *VaultDestination             `yaml:"vault,omitempty"`
+		AWSSecretsManager *AWSSecretsManagerDestination `yaml:"awsSecretsManager,omitempty"`
+		KubernetesSecret  *KubernetesSecretDestination  `yaml:"kubernetesSecret,omitempty"`
+		File              *FileDestination              `yaml:"file,omitempty"`
+	}
+	VaultDestination struct {
+		Mount string     `yaml:"mount"`
+		Path  string     `yaml:"path"`
+		Key   string     `yaml:"key"`
+		Auth  *VaultAuth `yaml:"auth,omitempty"`
+	}
+	VaultAuth struct {
+		Method string `yaml:"method,omitempty"`
+		Role   string `yaml:"role,omitempty"`
+	}
+	AWSSecretsManagerDestination struct {
+		Region     string `yaml:"region"`
+		SecretName string `yaml:"secretName"`
+	}
+	KubernetesSecretDestination struct {
+		Namespace string `yaml:"namespace"`
+		Name      string `yaml:"name"`
+		Key       string `yaml:"key"`
+	}
+	FileDestination struct {
+		Path string `yaml:"path"`
 	}
 	Repository struct {
 		RepoName          *string   `yaml:"repoName,omitempty"`
 		GroupName         *string   `yaml:"groupName,omitempty"`
 		Name              string    `yaml:"name"`
 		Permissions       []string  `yaml:"permissions"`
-		AccessLevel       *int      `yaml:"accessLevel,omitempty"`
+		AccessLevel       *string   `yaml:"accessLevel,omitempty"`
 		RotationThreshold *Duration `yaml:"rotationThreshold"`
 		GracePeriod       *Duration `yaml:"gracePeriod"`
 		Lifetime          Duration  `yaml:"lifetime"`
@@ -115,6 +175,9 @@ func (c *Config) ValidatePrefix() error {
 }
 
 func (c *Config) Validate() error {
+	if err := c.normalizeTargets(); err != nil {
+		return err
+	}
 	if err := c.ValidatePrefix(); err != nil {
 		return err
 	}
@@ -131,6 +194,109 @@ func (c *Config) Validate() error {
 		return err
 	}
 	return nil
+}
+
+func (c *Config) normalizeTargets() error {
+	if strings.TrimSpace(c.Token.Prefix) != "" {
+		c.Prefix = c.Token.Prefix
+	}
+	if len(c.Targets) == 0 {
+		return nil
+	}
+	c.Repos = nil
+	c.Repos = make([]Repository, 0, len(c.Targets))
+	for index := range c.Targets {
+		repo, err := c.Targets[index].toRepository()
+		if err != nil {
+			return fmt.Errorf("target at index %d: %w", index, err)
+		}
+		c.Repos = append(c.Repos, repo)
+	}
+	return nil
+}
+
+func (t Target) toRepository() (Repository, error) {
+	repo := Repository{
+		Name:              t.Name,
+		Permissions:       t.GeneratedToken.Scopes,
+		AccessLevel:       t.GeneratedToken.AccessLevel,
+		RotationThreshold: t.Rotation.Threshold,
+		GracePeriod:       t.Rotation.GracePeriod,
+		Lifetime:          t.GeneratedToken.Lifetime,
+		SecretStore:       normalizeDestinationType(t.Destination.Type),
+	}
+
+	path := strings.TrimSpace(t.GitLab.Path)
+	id := strings.TrimSpace(t.GitLab.ID)
+	if path != "" && id != "" {
+		return Repository{}, fmt.Errorf("%w: define either gitlab.path or gitlab.id, not both", ErrInvalidRepositoryConfig)
+	}
+	target := path
+	if target == "" {
+		target = id
+	}
+	switch strings.ToLower(strings.TrimSpace(t.GitLab.Type)) {
+	case "project":
+		if target == "" {
+			return Repository{}, fmt.Errorf("%w: gitlab.path or gitlab.id is required", ErrInvalidRepositoryConfig)
+		}
+		repo.RepoName = &target
+	case "group":
+		if target == "" {
+			return Repository{}, fmt.Errorf("%w: gitlab.path or gitlab.id is required", ErrInvalidRepositoryConfig)
+		}
+		repo.GroupName = &target
+	default:
+		return Repository{}, fmt.Errorf("%w: gitlab.type must be project or group", ErrInvalidRepositoryConfig)
+	}
+
+	switch repo.SecretStore {
+	case "vault":
+		if t.Destination.Vault != nil {
+			repo.Mount = stringPtr(t.Destination.Vault.Mount)
+			repo.VaultPath = stringPtr(t.Destination.Vault.Path)
+			repo.VaultKey = stringPtr(t.Destination.Vault.Key)
+			if t.Destination.Vault.Auth != nil {
+				repo.VaultAuthMethod = stringPtr(t.Destination.Vault.Auth.Method)
+				repo.VaultAuthRole = stringPtr(t.Destination.Vault.Auth.Role)
+			}
+		}
+	case "aws":
+		if t.Destination.AWSSecretsManager != nil {
+			repo.AWSRegion = stringPtr(t.Destination.AWSSecretsManager.Region)
+			repo.AWSSecretName = stringPtr(t.Destination.AWSSecretsManager.SecretName)
+		}
+	case "k8s":
+		if t.Destination.KubernetesSecret != nil {
+			repo.K8sNamespace = stringPtr(t.Destination.KubernetesSecret.Namespace)
+			repo.K8sSecretName = stringPtr(t.Destination.KubernetesSecret.Name)
+			repo.K8sSecretKey = stringPtr(t.Destination.KubernetesSecret.Key)
+		}
+	case "file":
+		if t.Destination.File != nil {
+			repo.FilePath = stringPtr(t.Destination.File.Path)
+		}
+	case "none":
+	default:
+		return Repository{}, fmt.Errorf("%w: unsupported destination type %q", ErrInvalidRepositoryConfig, t.Destination.Type)
+	}
+
+	return repo, nil
+}
+
+func normalizeDestinationType(destinationType string) string {
+	switch strings.ToLower(strings.TrimSpace(destinationType)) {
+	case "awssecretsmanager":
+		return "aws"
+	case "kubernetessecret":
+		return "k8s"
+	default:
+		return strings.ToLower(strings.TrimSpace(destinationType))
+	}
+}
+
+func stringPtr(value string) *string {
+	return &value
 }
 
 func (c *Config) validateUniqueTokenTargets() error {
@@ -225,12 +391,39 @@ func (r *Repository) validateAccessLevel() error {
 	if r.AccessLevel == nil {
 		return nil
 	}
-	switch *r.AccessLevel {
-	case 10, 20, 30, 40, 50:
+	switch normalizeAccessLevel(*r.AccessLevel) {
+	case "guest", "reporter", "developer", "maintainer", "owner":
 		return nil
 	default:
-		return fmt.Errorf("%w: accessLevel must be one of 10, 20, 30, 40, or 50", ErrInvalidRepositoryConfig)
+		return fmt.Errorf("%w: accessLevel must be one of guest, reporter, developer, maintainer, or owner", ErrInvalidRepositoryConfig)
 	}
+}
+
+func normalizeAccessLevel(accessLevel string) string {
+	return strings.ToLower(strings.TrimSpace(accessLevel))
+}
+
+func (r *Repository) GitLabAccessLevel() *gitlab.AccessLevelValue {
+	if r.AccessLevel == nil {
+		return nil
+	}
+
+	var level gitlab.AccessLevelValue
+	switch normalizeAccessLevel(*r.AccessLevel) {
+	case "guest":
+		level = gitlab.GuestPermissions
+	case "reporter":
+		level = gitlab.ReporterPermissions
+	case "developer":
+		level = gitlab.DeveloperPermissions
+	case "maintainer":
+		level = gitlab.MaintainerPermissions
+	case "owner":
+		level = gitlab.OwnerPermissions
+	default:
+		return nil
+	}
+	return &level
 }
 
 func (r *Repository) validateDurations() error {

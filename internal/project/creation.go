@@ -29,7 +29,7 @@ func CreateNewProjectToken(ctx context.Context, gitlabClient *gitlab.Client, pro
 		return nil, err
 	}
 
-	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, entry.AccessLevel, expiryDate)
+	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, entry.GitLabAccessLevel(), expiryDate)
 
 	if err != nil {
 		return nil, err
@@ -41,7 +41,7 @@ func CreateNewProjectToken(ctx context.Context, gitlabClient *gitlab.Client, pro
 	return token, nil
 }
 
-func createPATokenWithTokenOptions(ctx context.Context, gitlabClient *gitlab.Client, projectID int64, name string, permissions []string, accessLevel *int, t *time.Time) (*gitlab.ProjectAccessToken, error) {
+func createPATokenWithTokenOptions(ctx context.Context, gitlabClient *gitlab.Client, projectID int64, name string, permissions []string, accessLevel *gitlab.AccessLevelValue, t *time.Time) (*gitlab.ProjectAccessToken, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func RenewProjectAccessToken(ctx context.Context, gitlabClient *gitlab.Client, p
 		return nil, err
 	}
 
-	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, entry.AccessLevel, expiryDate)
+	token, err := createPATokenWithTokenOptions(ctx, gitlabClient, projectID, tokenName, entry.Permissions, entry.GitLabAccessLevel(), expiryDate)
 
 	if err != nil {
 		return nil, err
@@ -91,15 +91,14 @@ func validateProjectAccessTokenResponse(token *gitlab.ProjectAccessToken) error 
 	return nil
 }
 
-func createProjectAccessTokenOptions(tokenName string, scopes []string, accessLevel *int, expiry *time.Time) *gitlab.CreateProjectAccessTokenOptions {
+func createProjectAccessTokenOptions(tokenName string, scopes []string, accessLevel *gitlab.AccessLevelValue, expiry *time.Time) *gitlab.CreateProjectAccessTokenOptions {
 	options := &gitlab.CreateProjectAccessTokenOptions{
 		Name:      &tokenName,
 		Scopes:    &scopes,
 		ExpiresAt: (*gitlab.ISOTime)(expiry),
 	}
 	if accessLevel != nil {
-		level := gitlab.AccessLevelValue(*accessLevel)
-		options.AccessLevel = &level
+		options.AccessLevel = accessLevel
 	}
 	return options
 }

@@ -36,13 +36,16 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := helper.CheckEnvVars("GITLAB_TOKEN", "GITLAB_URL"); err != nil {
+	if err := helper.CheckEnvVars("GITLAB_TOKEN"); err != nil {
 		l.Fatal("the following error occurred:", zap.Error(err))
 	}
 
 	yamlConfig, err := config.ReadRepositoryConfig("config.yaml")
 	if err != nil {
 		l.Fatal("reading the yamlConfig failed", zap.Error(err))
+	}
+	if err := helper.CheckEnvVars("GITLAB_URL"); err != nil {
+		l.Fatal("the following error occurred:", zap.Error(err))
 	}
 	if yamlConfig.UsesVaultAppRole() {
 		if err := helper.CheckEnvVars("APPROLE_ID", "APPROLE_SECRET"); err != nil {

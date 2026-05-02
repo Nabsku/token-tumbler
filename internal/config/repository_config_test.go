@@ -12,16 +12,22 @@ import (
 
 func TestReadConfig(t *testing.T) {
 	t.Chdir(t.TempDir())
-	require.NoError(t, os.WriteFile("config.yaml", []byte(`prefix: tt
-repositories:
-  - repoName: service
-    name: token
-    permissions:
-      - api
-    rotationThreshold: 1d
-    gracePeriod: 1d
-    lifetime: 2d
-    secretStore: none
+	require.NoError(t, os.WriteFile("config.yaml", []byte(`token:
+  prefix: tt
+targets:
+  - name: token
+    gitlab:
+      type: project
+      path: service
+    generatedToken:
+      scopes:
+        - read_repository
+      lifetime: 2d
+    rotation:
+      threshold: 1d
+      gracePeriod: 1d
+    destination:
+      type: none
 `), 0o600))
 
 	cfg, err := ReadRepositoryConfig("config.yaml")

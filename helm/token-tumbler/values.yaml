@@ -47,21 +47,28 @@ securityContext:
 # See the application docs for the full schema.
 config:
   # -- Prefix for token names.
-  prefix: tt-
-  # -- Repositories or groups whose tokens should be managed.
-  repositories: []
-    # - groupName: group/example-group
-    #   name: test
-    #   permissions:
-    #     - read_repository
-    #   accessLevel: 20
-    #   rotationThreshold: 3d
-    #   lifetime: 5d
-    #   secretStore: vault
-    #   gracePeriod: 2d
-    #   vaultPath: teams/example/group
-    #   vaultKey: gitlab_token
-    #   vaultMount: kv
+  token:
+    prefix: tt-
+  # -- Project or group targets whose tokens should be managed.
+  targets: []
+    # - name: test
+    #   gitlab:
+    #     type: group
+    #     path: group/example-group
+    #   generatedToken:
+    #     scopes:
+    #       - read_repository
+    #     accessLevel: reporter
+    #     lifetime: 5d
+    #   rotation:
+    #     threshold: 3d
+    #     gracePeriod: 2d
+    #   destination:
+    #     type: vault
+    #     vault:
+    #       mount: kv
+    #       path: teams/example/group
+    #       key: gitlab_token
 
 # -- Environment variables for the container.
 env:
@@ -76,9 +83,9 @@ env:
   approleId: ""
   # -- Vault AppRole secret (required when Vault secret store is used).
   approleSecret: ""
-  # -- Vault token (required when using vaultAuthMethod: token).
+  # -- Vault token (required when using destination.vault.auth.method: token).
   vaultToken: ""
-  # -- Optional service account token path override for vaultAuthMethod: kubernetes.
+  # -- Optional service account token path override for destination.vault.auth.method: kubernetes.
   vaultK8sTokenPath: ""
 
 # -- Use an existing Secret instead of creating one from .Values.env.

@@ -28,7 +28,7 @@ func CreateNewGroupToken(ctx context.Context, gitlabClient *gitlab.Client, group
 	if err != nil {
 		return nil, err
 	}
-	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, entry.AccessLevel, expiryDate)
+	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, entry.GitLabAccessLevel(), expiryDate)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func RenewGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, gro
 	if err != nil {
 		return nil, err
 	}
-	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, entry.AccessLevel, expiryDate)
+	token, err := createGroupAccessToken(ctx, gitlabClient, groupID, tokenName, entry.Permissions, entry.GitLabAccessLevel(), expiryDate)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func validateGroupAccessTokenResponse(token *gitlab.GroupAccessToken) error {
 	return nil
 }
 
-func createGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, tokenName string, scopes []string, accessLevel *int, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
+func createGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, groupID int64, tokenName string, scopes []string, accessLevel *gitlab.AccessLevelValue, expiry *time.Time) (*gitlab.GroupAccessToken, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -83,15 +83,14 @@ func createGroupAccessToken(ctx context.Context, gitlabClient *gitlab.Client, gr
 	return token, nil
 }
 
-func createGroupAccessTokenOptions(tokenName string, scopes []string, accessLevel *int, expiry *time.Time) *gitlab.CreateGroupAccessTokenOptions {
+func createGroupAccessTokenOptions(tokenName string, scopes []string, accessLevel *gitlab.AccessLevelValue, expiry *time.Time) *gitlab.CreateGroupAccessTokenOptions {
 	options := &gitlab.CreateGroupAccessTokenOptions{
 		Name:      &tokenName,
 		Scopes:    &scopes,
 		ExpiresAt: (*gitlab.ISOTime)(expiry),
 	}
 	if accessLevel != nil {
-		level := gitlab.AccessLevelValue(*accessLevel)
-		options.AccessLevel = &level
+		options.AccessLevel = accessLevel
 	}
 	return options
 }

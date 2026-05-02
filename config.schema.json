@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Nabsku/token-tumbler/config.schema.json",
+  "title": "Token Tumbler configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["token", "targets"],
+  "properties": {
+    "gitlab": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "minLength": 1 }
+      }
+    },
+    "token": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefix"],
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/target" }
+    }
+  },
+  "$defs": {
+    "duration": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*[smhdwM]$"
+    },
+    "nonNegativeDuration": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)[smhdwM]$"
+    },
+    "accessLevel": {
+      "type": "string",
+      "enum": ["guest", "reporter", "developer", "maintainer", "owner"]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "gitlab", "generatedToken", "rotation", "destination"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "gitlab": { "$ref": "#/$defs/gitlabTarget" },
+        "generatedToken": { "$ref": "#/$defs/generatedToken" },
+        "rotation": { "$ref": "#/$defs/rotation" },
+        "destination": { "$ref": "#/$defs/destination" }
+      }
+    },
+    "gitlabTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["project", "group"] },
+        "path": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 }
+      },
+      "oneOf": [
+        { "required": ["path"], "not": { "required": ["id"] } },
+        { "required": ["id"], "not": { "required": ["path"] } }
+      ]
+    },
+    "generatedToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scopes", "lifetime"],
+      "properties": {
+        "scopes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "accessLevel": { "$ref": "#/$defs/accessLevel" },
+        "lifetime": { "$ref": "#/$defs/duration" }
+      }
+    },
+    "rotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "gracePeriod"],
+      "properties": {
+        "threshold": { "$ref": "#/$defs/duration" },
+        "gracePeriod": { "$ref": "#/$defs/nonNegativeDuration" }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["vault", "awsSecretsManager", "kubernetesSecret", "file", "none"]
+        },
+        "vault": { "$ref": "#/$defs/vaultDestination" },
+        "awsSecretsManager": { "$ref": "#/$defs/awsSecretsManagerDestination" },
+        "kubernetesSecret": { "$ref": "#/$defs/kubernetesSecretDestination" },
+        "file": { "$ref": "#/$defs/fileDestination" }
+      },
+      "oneOf": [
+        {
+          "required": ["type", "vault"],
+          "properties": { "type": { "const": "vault" } },
+          "not": { "anyOf": [{ "required": ["awsSecretsManager"] }, { "required": ["kubernetesSecret"] }, { "required": ["file"] }] }
+        },
+        {
+          "required": ["type", "awsSecretsManager"],
+          "properties": { "type": { "const": "awsSecretsManager" } },
+          "not": { "anyOf": [{ "required": ["vault"] }, { "required": ["kubernetesSecret"] }, { "required": ["file"] }] }
+        },
+        {
+          "required": ["type", "kubernetesSecret"],
+          "properties": { "type": { "const": "kubernetesSecret" } },
+          "not": { "anyOf": [{ "required": ["vault"] }, { "required": ["awsSecretsManager"] }, { "required": ["file"] }] }
+        },
+        {
+          "required": ["type", "file"],
+          "properties": { "type": { "const": "file" } },
+          "not": { "anyOf": [{ "required": ["vault"] }, { "required": ["awsSecretsManager"] }, { "required": ["kubernetesSecret"] }] }
+        },
+        {
+          "required": ["type"],
+          "properties": { "type": { "const": "none" } },
+          "not": { "anyOf": [{ "required": ["vault"] }, { "required": ["awsSecretsManager"] }, { "required": ["kubernetesSecret"] }, { "required": ["file"] }] }
+        }
+      ]
+    },
+    "vaultDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mount", "path", "key"],
+      "properties": {
+        "mount": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "key": { "type": "string", "minLength": 1 },
+        "auth": { "$ref": "#/$defs/vaultAuth" }
+      }
+    },
+    "vaultAuth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": { "type": "string", "enum": ["approle", "token", "kubernetes", "aws"] },
+        "role": { "type": "string", "minLength": 1 }
+      }
+    },
+    "awsSecretsManagerDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region", "secretName"],
+      "properties": {
+        "region": { "type": "string", "minLength": 1 },
+        "secretName": { "type": "string", "minLength": 1 }
+      }
+    },
+    "kubernetesSecretDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "name", "key"],
+      "properties": {
+        "namespace": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "key": { "type": "string", "minLength": 1 }
+      }
+    },
+    "fileDestination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

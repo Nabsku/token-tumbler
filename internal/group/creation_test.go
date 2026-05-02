@@ -16,7 +16,7 @@ func TestCreateGroupAccessTokenOptions(t *testing.T) {
 	expiry := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	scopes := []string{"api", "read_registry"}
 
-	accessLevel := 30
+	accessLevel := gitlab.DeveloperPermissions
 	opts := createGroupAccessTokenOptions("tt-group-2026", scopes, &accessLevel, &expiry)
 
 	require.NotNil(t, opts)

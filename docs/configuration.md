@@ -1,110 +1,170 @@
 # Configuration reference
 
-Token Tumbler uses one YAML file, `config.yaml`, for every token rotation target.
+Token Tumbler uses one YAML file, `config.yaml`. The schema is also available as [`config.schema.json`](../config.schema.json) for editor validation.
+
+Add this line to the top of your config file if your editor supports the YAML language server:
+
+```yaml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Nabsku/token-tumbler/main/config.schema.json
+```
+
+## Migration from the old flat config
+
+The current config shape replaces the older flat `repositories` list. Use this mapping when updating a pre-1.2 config:
+
+| Old field | New field |
+| --- | --- |
+| `prefix` | `token.prefix` |
+| `repositories[]` | `targets[]` |
+| `repoName` | `gitlab.type: project` and `gitlab.path` |
+| `groupName` | `gitlab.type: group` and `gitlab.path` |
+| `permissions` | `generatedToken.scopes` |
+| `lifetime` | `generatedToken.lifetime` |
+| `rotationThreshold` | `rotation.threshold` |
+| `gracePeriod` | `rotation.gracePeriod` |
+| `secretStore` and backend fields | `destination.type` and the matching `destination.<backend>` block |
+
+For example, `secretStore: vault`, `vaultMount`, `vaultPath`, and `vaultKey` become:
+
+```yaml
+destination:
+  type: vault
+  vault:
+    mount: kv
+    path: teams/example/project
+    key: gitlab_token
+```
 
 ## Example
 
 ```yaml
-prefix: tt-
-repositories:
-  - repoName: group/example-project
-    name: deploy
-    permissions:
-      - read_repository
-    accessLevel: 20
-    rotationThreshold: 3d
-    lifetime: 5d
-    gracePeriod: 2d
-    secretStore: vault
-    vaultMount: kv
-    vaultPath: teams/example/project
-    vaultKey: gitlab_token
+token:
+  prefix: tt-
+
+gitlab:
+  url: https://gitlab.example.com
+
+targets:
+  - name: deploy
+    gitlab:
+      type: project
+      path: group/example-project
+    generatedToken:
+      scopes:
+        - read_repository
+      accessLevel: reporter
+      lifetime: 5d
+    rotation:
+      threshold: 3d
+      gracePeriod: 2d
+    destination:
+      type: vault
+      vault:
+        mount: kv
+        path: teams/example/project
+        key: gitlab_token
 ```
 
 ## Top-level fields
 
-| Field          | Required | Description                                                                              |
-| -------------- | -------- | ---------------------------------------------------------------------------------------- |
-| `prefix`       | Yes      | Prefix for generated GitLab token names. Allowed characters: letters, numbers, `-`, `_`. |
-| `repositories` | Yes      | One or more project or group token targets.                                              |
+| Field | Required | Description |
+| --- | --- | --- |
+| `gitlab.url` | No | GitLab base URL. Use this for non-secret config, or set `GITLAB_URL` through the environment/Helm Secret. |
+| `token.prefix` | Yes | Prefix for generated GitLab token names. Allowed characters: letters, numbers, `-`, `_`. |
+| `targets` | Yes | One or more project or group token targets. |
 
-## Repository fields
+## Target fields
 
-Each entry must define one target: either `repoName` or `groupName`.
+| Field | Required | Description |
+| --- | --- | --- |
+| `name` | Yes | Logical token name used in generated GitLab token names. |
+| `gitlab.type` | Yes | `project` or `group`. |
+| `gitlab.path` | One of `path` or `id` | GitLab project or group path. |
+| `gitlab.id` | One of `path` or `id` | GitLab numeric project or group ID, encoded as a string. Use `id: "12345"`, not `id: 12345`. |
+| `generatedToken.scopes` | Yes | Scopes for generated tokens, such as `read_repository` or `api`. |
+| `generatedToken.accessLevel` | No | `guest`, `reporter`, `developer`, `maintainer`, or `owner`. Omit it to use GitLab's default. |
+| `generatedToken.lifetime` | Yes | Maximum lifetime for new tokens. Must be greater than `rotation.threshold`. |
+| `rotation.threshold` | Yes | How soon before expiry a token should be renewed. |
+| `rotation.gracePeriod` | Yes | How long to keep older tokens after a newer token exists. May be `0`. |
+| `destination.type` | Yes | `vault`, `awsSecretsManager`, `kubernetesSecret`, `file`, or `none`. |
 
-| Field               | Required                         | Description                                                                          |
-| ------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| `repoName`          | One of `repoName` or `groupName` | GitLab project path or ID.                                                           |
-| `groupName`         | One of `repoName` or `groupName` | GitLab group path or ID.                                                             |
-| `name`              | Yes                              | Logical token name used in generated GitLab token names.                             |
-| `permissions`       | Yes                              | Scopes for generated tokens, such as `read_repository` or `api`. See [Permissions and token keys](permissions.md). |
-| `accessLevel`       | No                               | GitLab role for generated tokens: `10` Guest, `20` Reporter, `30` Developer, `40` Maintainer, `50` Owner. Omit it to use GitLab's default. |
-| `rotationThreshold` | Yes                              | How soon before expiry a token should be renewed.                                    |
-| `lifetime`          | Yes                              | Maximum lifetime for new tokens. Must be greater than `rotationThreshold`.           |
-| `gracePeriod`       | Yes                              | How long to keep older tokens after a newer token exists. May be `0`.                |
-| `secretStore`       | Yes                              | `vault`, `file`, `aws`, `k8s`, or `none`. Use `none` only when something else captures the token. |
-| `vaultMount`        | For Vault                        | Vault KVv2 mount name.                                                               |
-| `vaultPath`         | For Vault                        | Vault KVv2 secret path.                                                              |
-| `vaultKey`          | For Vault                        | Key inside the KVv2 secret data to write.                                            |
-| `vaultAuthMethod`   | For Vault                        | Auth method: `approle` (default), `token`, `kubernetes`, or `aws`.                   |
-| `vaultAuthRole`     | For k8s/AWS                      | Role name for Kubernetes or AWS auth.                                                |
-| `filePath`          | For file                         | Destination path for the token file. Parent directory must already exist.            |
-| `awsSecretName`     | For AWS                          | Name of the secret in AWS Secrets Manager.                                           |
-| `awsRegion`         | For AWS                          | AWS region where the secret is stored.                                               |
-| `k8sNamespace`      | For k8s                          | Kubernetes namespace where the secret lives.                                         |
-| `k8sSecretName`     | For k8s                          | Name of the Kubernetes Secret resource.                                              |
-| `k8sSecretKey`      | For k8s                          | Key inside the Kubernetes Secret data to write.                                      |
+## Destination fields
+
+### Vault
+
+```yaml
+destination:
+  type: vault
+  vault:
+    mount: kv
+    path: teams/example/project
+    key: gitlab_token
+    auth:
+      method: approle # approle, token, kubernetes, or aws
+      role: my-role   # required for kubernetes and aws auth
+```
+
+### AWS Secrets Manager
+
+```yaml
+destination:
+  type: awsSecretsManager
+  awsSecretsManager:
+    region: us-east-1
+    secretName: my-gitlab-token
+```
+
+### Kubernetes Secret
+
+```yaml
+destination:
+  type: kubernetesSecret
+  kubernetesSecret:
+    namespace: default
+    name: gitlab-token
+    key: token
+```
+
+### File
+
+```yaml
+destination:
+  type: file
+  file:
+    path: /run/secrets/gitlab-token
+```
+
+### None
+
+```yaml
+destination:
+  type: none
+```
 
 ## Durations
 
-Duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days).
-
-This duration syntax applies to YAML fields such as `rotationThreshold`, `lifetime`, and `gracePeriod`. `TOKEN_TUMBLER_INTERVAL` uses Go duration syntax instead, so use values like `30s`, `5m`, or `1h` there.
-
-Examples:
-
-- `30s` - 30 seconds
-- `5m` - 5 minutes
-- `24h` - 1 day
-- `7d` - 7 days
-- `4w` - 4 weeks
-- `6M` - 6 months (180 days)
+Config duration suffixes: `s`, `m`, `h`, `d`, `w`, `M` (`M` is 30 days). `TOKEN_TUMBLER_INTERVAL` uses Go duration syntax instead, so use values like `30s`, `5m`, or `1h` there.
 
 ## Uniqueness rules
 
-Token targets must be unique by `prefix`, target type (`repoName` or `groupName`), target value, and `name`. That keeps two config entries from managing the same GitLab token family.
+Token targets must be unique by `token.prefix`, `gitlab.type`, GitLab target path or ID, and `name`. That keeps two config entries from managing the same GitLab token family.
 
 ## Environment variables
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `GITLAB_URL` | Yes | GitLab base URL. |
+| `GITLAB_URL` | No | GitLab base URL. Required only when `gitlab.url` is not set in config. |
 | `GITLAB_TOKEN` | Yes | GitLab token used to list, create, and revoke configured project/group access tokens. See [Permissions and token keys](permissions.md). |
 | `TOKEN_TUMBLER_INTERVAL` | No | Polling interval. Defaults to `5m`. Uses Go duration syntax (`30s`, `5m`, `1h`). |
 | `TOKEN_TUMBLER_METRICS_ADDR` | No | Metrics and health server bind address. Defaults to `:9090`. |
 | `VAULT_ADDR` | Vault only | Vault server URL, for example `https://vault.example.com`. |
 | `APPROLE_ID` | Vault AppRole only | Vault AppRole role ID. |
 | `APPROLE_SECRET` | Vault AppRole only | Vault AppRole secret ID. |
-| `VAULT_TOKEN` | Vault token auth only | Vault token for `vaultAuthMethod: token`. |
+| `VAULT_TOKEN` | Vault token auth only | Vault token for `auth.method: token`. |
 | `VAULT_K8S_TOKEN_PATH` | No | Optional service-account token path override for Vault Kubernetes auth. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_ENABLED` | No | Enables Kubernetes leader election with Lease objects. Defaults to `false`. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_NAMESPACE` | Leader election only | Namespace containing the Lease. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_NAME` | No | Lease name. Defaults to `token-tumbler`. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_IDENTITY` | No | Unique instance identity. Defaults to hostname. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_LEASE_DURATION` | No | Lease duration. Defaults to `15s`. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_RENEW_DEADLINE` | No | Lease renew deadline. Defaults to `10s`. |
-| `TOKEN_TUMBLER_LEADER_ELECTION_RETRY_PERIOD` | No | Lease retry period. Defaults to `2s`. |
 
 Use leader election for Kubernetes deployments with more than one replica. It needs in-cluster Kubernetes credentials that can get, list, watch, create, update, and patch `coordination.k8s.io` Lease objects in the configured namespace.
 
 ## Validation
 
-The daemon validates configuration on startup and exits if:
-
-- The prefix contains invalid characters
-- No repositories are defined
-- Any repository is missing required fields
-- `accessLevel` is set to anything except `10`, `20`, `30`, `40`, or `50`
-- Duration values are invalid or inconsistent (e.g., `rotationThreshold` >= `lifetime`)
-- Secret store configuration is incomplete
-- Duplicate token targets exist
+The daemon validates configuration on startup and exits if required fields are missing, durations are invalid, destination settings are incomplete, access level is unknown, or duplicate token targets exist.

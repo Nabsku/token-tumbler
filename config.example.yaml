@@ -1,40 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Nabsku/token-tumbler/main/config.schema.json
+
 # Prefix for GitLab access token names created by Token Tumbler.
 # `tt` and `tt-` belong to the same prefix family during cleanup.
-prefix: tt-
+token:
+  prefix: tt-
 
-# Each entry manages either a GitLab group access token (`groupName`) or a project
-# access token (`repoName`). Replace these examples with your own targets.
-repositories:
-  - groupName: group/example-group
-    # Logical token name. Generated tokens look like: <prefix><name>-<timestamp>.
-    name: deploy
-    # GitLab access token scopes for replacement tokens.
-    permissions:
-      - read_repository
-    # GitLab role for generated tokens: 10 Guest, 20 Reporter, 30 Developer,
-    # 40 Maintainer, 50 Owner. Omit this to let GitLab choose its default.
-    accessLevel: 20
-    # Rotate when the current token has this much lifetime, or less, remaining.
-    rotationThreshold: 3d
-    # Lifetime for new GitLab access tokens.
-    lifetime: 5d
-    # Secret store backend: vault, aws, k8s, file, or none.
-    secretStore: vault
-    # Keep the previous token this long after a successful rotation.
-    gracePeriod: 2d
-    # Vault KVv2 destination for the token value.
-    vaultPath: teams/example/group
-    vaultKey: gitlab_token
-    vaultMount: kv
-  - repoName: group/example-project
-    name: deploy
-    permissions:
-      - read_repository
-    accessLevel: 20
-    rotationThreshold: 3d
-    lifetime: 5d
-    secretStore: vault
-    gracePeriod: 2d
-    vaultPath: teams/example/project
-    vaultKey: gitlab_token
-    vaultMount: kv
+# Each target manages either a GitLab group or project access token.
+targets:
+  - name: deploy
+    gitlab:
+      type: group
+      path: group/example-group
+    generatedToken:
+      scopes:
+        - read_repository
+      accessLevel: reporter
+      lifetime: 5d
+    rotation:
+      threshold: 3d
+      gracePeriod: 2d
+    destination:
+      type: vault
+      vault:
+        mount: kv
+        path: teams/example/group
+        key: gitlab_token
+
+  - name: deploy
+    gitlab:
+      type: project
+      path: group/example-project
+    generatedToken:
+      scopes:
+        - read_repository
+      accessLevel: reporter
+      lifetime: 5d
+    rotation:
+      threshold: 3d
+      gracePeriod: 2d
+    destination:
+      type: vault
+      vault:
+        mount: kv
+        path: teams/example/project
+        key: gitlab_token

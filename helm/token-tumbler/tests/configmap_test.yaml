@@ -11,24 +11,33 @@ tests:
           value: RELEASE-NAME-token-tumbler
       - matchRegex:
           path: data["config.yaml"]
-          pattern: 'prefix: "tt-"'
+          pattern: 'prefix: tt-'
       - matchRegex:
           path: data["config.yaml"]
-          pattern: 'repositories:\s*\[\]'
+          pattern: 'targets:\s*\[\]'
 
-  - it: renders configured repositories
+  - it: renders configured targets
     set:
       config:
-        repositories:
+        gitlab:
+          url: https://gitlab.example.com
+        targets:
           - name: release-test
-            groupName: example/release-test
-            secretStore: vault
-            vaultPath: release/test
-            vaultKey: token
+            gitlab:
+              type: group
+              path: example/release-test
+            destination:
+              type: vault
+              vault:
+                path: release/test
+                key: token
     asserts:
       - matchRegex:
           path: data["config.yaml"]
           pattern: 'name: release-test'
       - matchRegex:
           path: data["config.yaml"]
-          pattern: 'groupName: example/release-test'
+          pattern: 'url: https://gitlab.example.com'
+      - matchRegex:
+          path: data["config.yaml"]
+          pattern: 'path: example/release-test'

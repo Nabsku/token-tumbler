@@ -98,14 +98,15 @@ jobs:
             --set image.tag="${VERSION}" \
             --set env.gitlabToken=dummy-token \
             --set env.gitlabUrl=https://gitlab.example.com \
-            --set config.repositories[0].repoName=group/example-project \
-            --set config.repositories[0].name=deploy \
-            --set config.repositories[0].permissions[0]=read_repository \
-            --set config.repositories[0].accessLevel=20 \
-            --set config.repositories[0].rotationThreshold=3d \
-            --set config.repositories[0].lifetime=5d \
-            --set config.repositories[0].gracePeriod=2d \
-            --set config.repositories[0].secretStore=none
+            --set config.targets[0].name=deploy \
+            --set config.targets[0].gitlab.type=project \
+            --set config.targets[0].gitlab.path=group/example-project \
+            --set config.targets[0].generatedToken.scopes[0]=read_repository \
+            --set config.targets[0].generatedToken.accessLevel=reporter \
+            --set config.targets[0].generatedToken.lifetime=5d \
+            --set config.targets[0].rotation.threshold=3d \
+            --set config.targets[0].rotation.gracePeriod=2d \
+            --set config.targets[0].destination.type=none
           status=$?
           if [ "$status" -ne 0 ]; then
             kubectl get all --namespace token-tumbler

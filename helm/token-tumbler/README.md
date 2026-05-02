@@ -23,7 +23,6 @@ For production, avoid passing secrets with `--set` or committing them to values 
 
 ```sh
 kubectl create secret generic token-tumbler-env \
-  --from-literal=GITLAB_URL="https://gitlab.example.com" \
   --from-literal=GITLAB_TOKEN="glpat-..."
 
 helm install token-tumbler ./helm/token-tumbler \
@@ -33,28 +32,36 @@ helm install token-tumbler ./helm/token-tumbler \
 
 ## Required values
 
-At minimum, set GitLab credentials and one managed target under `config.repositories`.
+At minimum, set a GitLab token and one managed target under `config.targets`. Put the non-secret GitLab URL in `config.gitlab.url`, or set `env.gitlabUrl` / `GITLAB_URL` if your deployment standard keeps all GitLab connection settings in a Secret.
 
 ```yaml
 env:
-  gitlabUrl: https://gitlab.example.com
   gitlabToken: glpat-...
 
 config:
-  prefix: tt-
-  repositories:
-    - repoName: group/example-project
-      name: deploy
-      permissions:
-        - read_repository
-      accessLevel: 20
-      rotationThreshold: 3d
-      lifetime: 5d
-      gracePeriod: 2d
-      secretStore: vault
-      vaultMount: kv
-      vaultPath: teams/example/project
-      vaultKey: gitlab_token
+  gitlab:
+    url: https://gitlab.example.com
+  token:
+    prefix: tt-
+  targets:
+    - name: deploy
+      gitlab:
+        type: project
+        path: group/example-project
+      generatedToken:
+        scopes:
+          - read_repository
+        accessLevel: reporter
+        lifetime: 5d
+      rotation:
+        threshold: 3d
+        gracePeriod: 2d
+      destination:
+        type: vault
+        vault:
+          mount: kv
+          path: teams/example/project
+          key: gitlab_token
 ```
 
 ## Existing Secret keys
@@ -63,7 +70,7 @@ When `existingSecret` is set, the chart reads environment variables from that Se
 
 | Key | When needed |
 | --- | --- |
-| `GITLAB_URL` | Always |
+| `GITLAB_URL` | When `config.gitlab.url` is not set |
 | `GITLAB_TOKEN` | Always |
 | `TOKEN_TUMBLER_INTERVAL` | Optional |
 | `APPROLE_ID` | Vault AppRole auth |
@@ -97,27 +104,33 @@ Startup and liveness probes use the HTTP `/healthz` endpoint. Keep `metrics.enab
 
 ## Kubernetes Secret backend RBAC
 
-The `k8s` secret store writes rotated token values into Kubernetes Secrets. The chart does not create that Secret read/write RBAC for you, because target namespaces vary by installation.
+The `kubernetesSecret` destination writes rotated token values into Kubernetes Secrets. The chart does not create that Secret read/write RBAC for you, because target namespaces vary by installation.
 
-If you use `secretStore: k8s`, make sure the service account can read, create, and update the target Secret, and mount the service account token:
+If you use `destination.type: kubernetesSecret`, make sure the service account can read, create, and update the target Secret, and mount the service account token:
 
 ```yaml
 serviceAccount:
   automount: true
 config:
-  repositories:
-    - repoName: group/example-project
-      name: deploy
-      permissions:
-        - read_repository
-      accessLevel: 20
-      rotationThreshold: 3d
-      lifetime: 5d
-      gracePeriod: 2d
-      secretStore: k8s
-      k8sNamespace: default
-      k8sSecretName: gitlab-token
-      k8sSecretKey: token
+  targets:
+    - name: deploy
+      gitlab:
+        type: project
+        path: group/example-project
+      generatedToken:
+        scopes:
+          - read_repository
+        accessLevel: reporter
+        lifetime: 5d
+      rotation:
+        threshold: 3d
+        gracePeriod: 2d
+      destination:
+        type: kubernetesSecret
+        kubernetesSecret:
+          namespace: default
+          name: gitlab-token
+          key: token
 ```
 
 For each target namespace, add a Role/RoleBinding that grants `get`, `create`, and `update` on `secrets` to the Token Tumbler service account.
