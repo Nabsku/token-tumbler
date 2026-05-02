@@ -84,7 +84,7 @@ jobs:
           helm upgrade --install token-tumbler helm/token-tumbler \
             --namespace token-tumbler \
             --wait \
-            --timeout 5m \
+            --timeout 2m \
             --set image.repository=registry.k8s.io/e2e-test-images/busybox \
             --set image.tag=1.29-4 \
             --set-json command='["sh"]' \

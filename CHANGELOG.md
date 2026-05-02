@@ -4,12 +4,17 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
-## [1.1.3] - 2026-05-01
+## [1.1.4] - 2026-05-02
 
 
 ### Bug fixes
 
 - Stabilize helm release deployment test ([5432491](https://github.com/Nabsku/token-tumbler/commit/54324914b9c2259ff1258a37711885f85ed31e8e))
+
+
+### Continuous integration
+
+- Add helm release diagnostics ([03585d8](https://github.com/Nabsku/token-tumbler/commit/03585d84457ef8a53a75ff80d6e8f0bd6864b929))
 ## [1.1.2] - 2026-05-01
 
 
