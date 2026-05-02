@@ -80,16 +80,25 @@ jobs:
 
       - name: Test Helm deployment in kind
         run: |
+          set +e
           helm upgrade --install token-tumbler helm/token-tumbler \
             --namespace token-tumbler \
             --wait \
             --timeout 5m \
-            --set image.repository=busybox \
-            --set image.tag=1.36 \
+            --set image.repository=registry.k8s.io/e2e-test-images/busybox \
+            --set image.tag=1.29-4 \
             --set-json command='["sh"]' \
             --set-json args='["-c","sleep 3600"]' \
             --set env.gitlabToken=dummy-token \
             --set env.gitlabUrl=https://gitlab.example.com
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            kubectl get all --namespace token-tumbler
+            kubectl describe pods --namespace token-tumbler
+            kubectl get events --namespace token-tumbler --sort-by=.lastTimestamp
+            kubectl logs --namespace token-tumbler --selector app.kubernetes.io/instance=token-tumbler --all-containers --tail=-1 || true
+            exit "$status"
+          fi
           helm test token-tumbler --namespace token-tumbler --logs
 
       - name: Log in to GHCR (Helm OCI)

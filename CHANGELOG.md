@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [1.1.3] - 2026-05-01
+
+
+### Bug fixes
+
+- Stabilize helm release deployment test ([5432491](https://github.com/Nabsku/token-tumbler/commit/54324914b9c2259ff1258a37711885f85ed31e8e))
 ## [1.1.2] - 2026-05-01
 
 
