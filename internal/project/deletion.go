@@ -60,9 +60,10 @@ func DeleteProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, repo 
 	detectProjectOrphans(prefixedTokens, preserveToken, vaultTokenID, l, repo.Name)
 
 	var revokeErr error
+	now := repo.CurrentTime()
 	for _, token := range prefixedTokens {
 		l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
-		shouldDelete := checkProjectTokenDeletion(repo, token, preserveToken)
+		shouldDelete := checkProjectTokenDeletionAt(repo, token, preserveToken, now)
 
 		if shouldDelete {
 			l.Debug("deleting token", zap.String("token_name", token.Name), zap.String("repo", *repo.RepoName))
@@ -126,6 +127,10 @@ func detectProjectOrphans(tokens []*gitlab.ProjectAccessToken, preserveToken *gi
 }
 
 func checkProjectTokenDeletion(entry *repository.Repository, token *gitlab.ProjectAccessToken, preserveToken *gitlab.ProjectAccessToken) bool {
+	return checkProjectTokenDeletionAt(entry, token, preserveToken, entry.CurrentTime())
+}
+
+func checkProjectTokenDeletionAt(entry *repository.Repository, token *gitlab.ProjectAccessToken, preserveToken *gitlab.ProjectAccessToken, now time.Time) bool {
 	l := logger.GetLogger()
 
 	l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
@@ -140,10 +145,14 @@ func checkProjectTokenDeletion(entry *repository.Repository, token *gitlab.Proje
 		l.Debug("Token is the preserved token, not deleting")
 		return false
 	}
+	if token.CreatedAt.After(*preserveToken.CreatedAt) {
+		l.Debug("Token is newer than the preserved token, not deleting")
+		return false
+	}
 
 	l.Debug("checking if token is older than grace period", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 
-	if time.Now().After(preserveToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
+	if now.After(preserveToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
 		return true
 	}
 

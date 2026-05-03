@@ -58,7 +58,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
 			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
-			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-old"},{"id":2,"name":"tt-platform-new"}]`))
+			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-2026-01-01T00:00:00Z"},{"id":2,"name":"tt-platform-2026-01-02T00:00:00Z"}]`))
 		})
 
 		got, err := GatherGroupTokenInfo(context.Background(), client, 42)
@@ -66,7 +66,7 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, got, 2)
 		assert.Equal(t, int64(1), got[0].ID)
-		assert.Equal(t, "tt-platform-old", got[0].Name)
+		assert.Equal(t, "tt-platform-2026-01-01T00:00:00Z", got[0].Name)
 	})
 
 	t.Run("returns all paginated group access tokens", func(t *testing.T) {
@@ -78,9 +78,9 @@ func TestGatherGroupTokenInfo(t *testing.T) {
 			switch r.URL.Query().Get("page") {
 			case "", "1":
 				w.Header().Set("X-Next-Page", "2")
-				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-old"}]`))
+				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-platform-2026-01-01T00:00:00Z"}]`))
 			case "2":
-				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-platform-new"}]`))
+				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-platform-2026-01-02T00:00:00Z"}]`))
 			default:
 				t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
 				http.Error(w, "unexpected page", http.StatusBadRequest)
@@ -112,9 +112,9 @@ func TestGatherGroupTokenInfoByPrefix(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.Equal(t, "/api/v4/groups/42/access_tokens", r.URL.Path)
 		_, _ = w.Write([]byte(`[
-			{"id":1,"name":"tt-platform-old","active":true},
+			{"id":1,"name":"tt-platform-2026-01-01T00:00:00Z","active":true},
 			{"id":2,"name":"foreign-token","active":true},
-			{"id":3,"name":"tt-platform-new","active":true},
+			{"id":3,"name":"tt-platform-2026-01-02T00:00:00Z","active":true},
 			{"id":4,"name":"tt-platform-revoked","active":false,"revoked":true},
 			{"id":5,"name":"tt-platform-inactive","active":false}
 		]`))

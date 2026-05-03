@@ -475,10 +475,12 @@ func TestRepository_ParseTokenName(t *testing.T) {
 		wantOK    bool
 	}{
 		{name: "matches expected prefix repo format", repoName: "service", prefix: "tt", tokenName: "tt-service-2026-01-01T00:00:00Z", wantOK: true},
+		{name: "rejects matching prefix with missing timestamp", repoName: "service", prefix: "tt", tokenName: "tt-service-new", wantOK: false},
+		{name: "rejects matching prefix with date-only timestamp", repoName: "service", prefix: "tt", tokenName: "tt-service-2026-01-01", wantOK: false},
 		{name: "rejects expected format as substring", repoName: "service", prefix: "tt", tokenName: "old-tt-service-2026", wantOK: false},
 		{name: "rejects missing dash after prefix", repoName: "service", prefix: "tt", tokenName: "ttservice-2026", wantOK: false},
 		{name: "rejects different repository name", repoName: "service", prefix: "tt", tokenName: "tt-other-2026", wantOK: false},
-		{name: "trailing dash prefix still matches single dash format", repoName: "service", prefix: "tt-", tokenName: "tt-service-2026", wantOK: true},
+		{name: "trailing dash prefix still matches single dash format", repoName: "service", prefix: "tt-", tokenName: "tt-service-2026-01-01T00:00:00Z", wantOK: true},
 		{name: "trailing dash prefix rejects double dash format", repoName: "service", prefix: "tt-", tokenName: "tt--service-2026", wantOK: false},
 	}
 
@@ -534,6 +536,17 @@ func TestRepository_GetExpiryDate(t *testing.T) {
 	assert.False(t, expiry.After(after.Add(time.Second)), "expiry %s should be near now+lifetime", expiry)
 }
 
+func TestRepository_GetExpiryDateAt(t *testing.T) {
+	now := time.Date(2026, time.January, 13, 12, 30, 0, 0, time.UTC)
+	repo := &Repository{Lifetime: Duration{Duration: 72 * time.Hour}}
+
+	expiry, err := repo.getExpiryDateAt(now)
+
+	require.NoError(t, err)
+	require.NotNil(t, expiry)
+	assert.Equal(t, now.Add(72*time.Hour), *expiry)
+}
+
 func TestRepository_NewTokenName(t *testing.T) {
 	t.Run("builds name with RFC3339 timestamp", func(t *testing.T) {
 		repo := &Repository{Name: "service"}
@@ -569,6 +582,16 @@ func TestRepository_NewTokenName(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot be empty")
 	})
+}
+
+func TestRepository_NewTokenNameAt(t *testing.T) {
+	now := time.Date(2026, time.January, 13, 12, 30, 0, 0, time.UTC)
+	repo := &Repository{Name: "service"}
+
+	name, err := repo.newTokenNameAt("tt-", now)
+
+	require.NoError(t, err)
+	assert.Equal(t, "tt-service-2026-01-13T12:30:00Z", name)
 }
 
 func TestParseISOTime(t *testing.T) {
@@ -650,9 +673,92 @@ func TestRepository_ShouldBeRenewed(t *testing.T) {
 	}
 }
 
+func TestThresholdExceededAt_TimeTravel(t *testing.T) {
+	now := time.Date(2026, time.January, 13, 0, 0, 0, 0, time.UTC)
+	expiresAt := mustISODateValue(t, "2026-01-20")
+	repo := &Repository{RotationThreshold: &Duration{Duration: 48 * time.Hour}}
+
+	tests := []struct {
+		name string
+		now  time.Time
+		want bool
+	}{
+		{name: "well before threshold", now: now, want: false},
+		{name: "one second before threshold", now: now.Add(5*24*time.Hour - time.Second), want: false},
+		{name: "exactly at inclusive threshold", now: now.Add(5 * 24 * time.Hour), want: true},
+		{name: "after threshold", now: now.Add(5*24*time.Hour + time.Second), want: true},
+		{name: "after expiry", now: now.Add(8 * 24 * time.Hour), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := thresholdExceededAt(repo, expiresAt, tt.now)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestThresholdExceededAt_Boundary(t *testing.T) {
+	now := time.Date(2026, time.January, 13, 0, 0, 0, 0, time.UTC)
+	repo := &Repository{RotationThreshold: &Duration{Duration: 48 * time.Hour}}
+
+	tests := []struct {
+		name      string
+		expiresAt string
+		want      bool
+	}{
+		{name: "past expiry renews", expiresAt: "2026-01-12", want: true},
+		{name: "inside threshold renews", expiresAt: "2026-01-14", want: true},
+		{name: "exact threshold renews", expiresAt: "2026-01-15", want: true},
+		{name: "outside threshold does not renew", expiresAt: "2026-01-16", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := thresholdExceededAt(repo, mustISODateValue(t, tt.expiresAt), now)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestThresholdExceededAt_DateOnlyExpiryUsesMidnightUTC(t *testing.T) {
+	repo := &Repository{RotationThreshold: &Duration{Duration: 48 * time.Hour}}
+	expiresAt := mustISODateValue(t, "2026-01-03")
+
+	tests := []struct {
+		name string
+		now  time.Time
+		want bool
+	}{
+		{name: "exactly two days before date-only midnight", now: time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC), want: true},
+		{name: "same calendar day at noon is already inside threshold", now: time.Date(2026, time.January, 1, 12, 0, 0, 0, time.UTC), want: true},
+		{name: "one nanosecond before threshold", now: time.Date(2025, time.December, 31, 23, 59, 59, int(time.Second-time.Nanosecond), time.UTC), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := thresholdExceededAt(repo, expiresAt, tt.now)
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func mustISODate(t *testing.T, value time.Time) *gitlab.ISOTime {
 	t.Helper()
 	iso, err := gitlab.ParseISOTime(value.Format(time.DateOnly))
+	require.NoError(t, err)
+	return &iso
+}
+
+func mustISODateValue(t *testing.T, value string) *gitlab.ISOTime {
+	t.Helper()
+	iso, err := gitlab.ParseISOTime(value)
 	require.NoError(t, err)
 	return &iso
 }

@@ -43,13 +43,14 @@ func DeleteGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, repo *r
 	detectGroupOrphans(tokens, preserveToken, vaultTokenID, l, repo.Name)
 
 	var revokeErr error
+	now := repo.CurrentTime()
 	for _, token := range tokens {
 		if token.Revoked || !token.Active {
 			continue
 		}
 		if parseOk, errTokenParse := repo.ParseTokenName(prefix, token.Name); parseOk {
 			l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
-			shouldDelete := checkGroupTokenDeletion(repo, token, preserveToken)
+			shouldDelete := checkGroupTokenDeletionAt(repo, token, preserveToken, now)
 
 			if shouldDelete {
 				l.Debug("deleting token", zap.String("token_name", token.Name), zap.String("group", *repo.GroupName))
@@ -115,6 +116,10 @@ func detectGroupOrphans(tokens []*gitlab.GroupAccessToken, preserveToken *gitlab
 }
 
 func checkGroupTokenDeletion(entry *repository.Repository, token *gitlab.GroupAccessToken, preserveToken *gitlab.GroupAccessToken) bool {
+	return checkGroupTokenDeletionAt(entry, token, preserveToken, entry.CurrentTime())
+}
+
+func checkGroupTokenDeletionAt(entry *repository.Repository, token *gitlab.GroupAccessToken, preserveToken *gitlab.GroupAccessToken, now time.Time) bool {
 	l := logger.GetLogger()
 
 	l.Debug("checking token for deletion", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
@@ -129,10 +134,14 @@ func checkGroupTokenDeletion(entry *repository.Repository, token *gitlab.GroupAc
 		l.Debug("Token is the preserved token, not deleting")
 		return false
 	}
+	if token.CreatedAt.After(*preserveToken.CreatedAt) {
+		l.Debug("Token is newer than the preserved token, not deleting")
+		return false
+	}
 
 	l.Debug("checking if token is older than grace period", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 
-	if time.Now().After(preserveToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
+	if now.After(preserveToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {
 		return true
 	}
 

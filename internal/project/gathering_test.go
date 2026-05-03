@@ -58,7 +58,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			assert.Equal(t, http.MethodGet, r.Method)
 			assert.Equal(t, "/api/v4/projects/42/access_tokens", r.URL.Path)
 			assert.Equal(t, "100", r.URL.Query().Get("per_page"))
-			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-old"},{"id":2,"name":"tt-service-new"}]`))
+			_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-2026-01-01T00:00:00Z"},{"id":2,"name":"tt-service-2026-01-02T00:00:00Z"}]`))
 		})
 
 		got, err := GatherProjectTokenInfo(context.Background(), client, 42)
@@ -66,7 +66,7 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, got, 2)
 		assert.Equal(t, int64(1), got[0].ID)
-		assert.Equal(t, "tt-service-old", got[0].Name)
+		assert.Equal(t, "tt-service-2026-01-01T00:00:00Z", got[0].Name)
 	})
 
 	t.Run("returns all paginated project access tokens", func(t *testing.T) {
@@ -78,9 +78,9 @@ func TestGatherProjectTokenInfo(t *testing.T) {
 			switch r.URL.Query().Get("page") {
 			case "", "1":
 				w.Header().Set("X-Next-Page", "2")
-				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-old"}]`))
+				_, _ = w.Write([]byte(`[{"id":1,"name":"tt-service-2026-01-01T00:00:00Z"}]`))
 			case "2":
-				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-service-new"}]`))
+				_, _ = w.Write([]byte(`[{"id":2,"name":"tt-service-2026-01-02T00:00:00Z"}]`))
 			default:
 				t.Errorf("unexpected page %q", r.URL.Query().Get("page"))
 				http.Error(w, "unexpected page", http.StatusBadRequest)

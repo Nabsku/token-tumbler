@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestCheckProjectTokenDeletion_ShouldDelete(t *testing.T) {
@@ -56,6 +57,92 @@ func TestCheckProjectTokenDeletion_ShouldNotDeleteTokenWithUnknownCreationDate(t
 	assert.False(t, shouldDelete)
 }
 
+func TestCheckProjectTokenDeletionAt_GracePeriodBoundary(t *testing.T) {
+	createdAt := time.Date(2026, time.January, 13, 12, 0, 0, 0, time.UTC)
+	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
+	oldToken := projectAccessToken(1, createdAt.Add(-time.Hour))
+	preserveToken := projectAccessToken(2, createdAt)
+
+	tests := []struct {
+		name string
+		now  time.Time
+		want bool
+	}{
+		{name: "before grace boundary", now: createdAt.Add(24*time.Hour - time.Nanosecond), want: false},
+		{name: "at grace boundary", now: createdAt.Add(24 * time.Hour), want: false},
+		{name: "after grace boundary", now: createdAt.Add(24*time.Hour + time.Nanosecond), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkProjectTokenDeletionAt(repo, oldToken, preserveToken, tt.now)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCheckProjectTokenDeletionAt_ZeroGracePeriodBoundary(t *testing.T) {
+	createdAt := time.Date(2026, time.January, 13, 12, 0, 0, 0, time.UTC)
+	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: 0}}
+	oldToken := projectAccessToken(1, createdAt.Add(-time.Hour))
+	preserveToken := projectAccessToken(2, createdAt)
+
+	tests := []struct {
+		name string
+		now  time.Time
+		want bool
+	}{
+		{name: "at creation boundary", now: createdAt, want: false},
+		{name: "after creation boundary", now: createdAt.Add(time.Nanosecond), want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := checkProjectTokenDeletionAt(repo, oldToken, preserveToken, tt.now)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestResolvePreserveToken_ProjectPolicy(t *testing.T) {
+	older := projectAccessToken(1, time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC))
+	newest := projectAccessToken(2, time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC))
+	tokens := []*gitlab.ProjectAccessToken{older, newest}
+
+	tests := []struct {
+		name         string
+		vaultTokenID int64
+		wantID       int64
+	}{
+		{name: "vault token id matches newest", vaultTokenID: newest.ID, wantID: newest.ID},
+		{name: "vault token id missing falls back to newest", vaultTokenID: 99, wantID: newest.ID},
+		{name: "no vault token id falls back to newest", vaultTokenID: 0, wantID: newest.ID},
+		{name: "vault token id matches older persisted token", vaultTokenID: older.ID, wantID: older.ID},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolvePreserveToken(tokens, tt.vaultTokenID, zap.NewNop(), "service")
+
+			require.NotNil(t, got)
+			assert.Equal(t, tt.wantID, got.ID)
+		})
+	}
+}
+
+func TestCheckProjectTokenDeletionAt_DoesNotDeleteNewerOrphanThanVaultPreservedToken(t *testing.T) {
+	now := time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC)
+	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
+	preserveToken := projectAccessToken(1, now.Add(-72*time.Hour))
+	newerOrphan := projectAccessToken(2, now.Add(-48*time.Hour))
+	olderToken := projectAccessToken(3, now.Add(-96*time.Hour))
+
+	assert.False(t, checkProjectTokenDeletionAt(repo, newerOrphan, preserveToken, now))
+	assert.True(t, checkProjectTokenDeletionAt(repo, olderToken, preserveToken, now))
+}
+
 func projectAccessToken(id int64, createdAt time.Time) *gitlab.ProjectAccessToken {
 	token := &gitlab.ProjectAccessToken{}
 	token.ID = id
@@ -74,7 +161,7 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenOneMatchingTokenExists(t *testin
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tt-service-only","active":true,"created_at":%q},
+				{"id":1,"name":"tt-service-2026-01-01T00:00:00Z","active":true,"created_at":%q},
 				{"id":2,"name":"foreign-token","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-72*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
@@ -102,9 +189,9 @@ func TestDeleteProjectTokens_ShouldDeleteOnlyOlderMatchingTokensAfterGracePeriod
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tt-service-oldest","active":true,"created_at":%q},
-				{"id":2,"name":"tt-service-old","active":true,"created_at":%q},
-				{"id":3,"name":"tt-service-newest","active":true,"created_at":%q},
+				{"id":1,"name":"tt-service-2026-01-01T00:00:00Z","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-2026-01-02T00:00:00Z","active":true,"created_at":%q},
+				{"id":3,"name":"tt-service-2026-01-03T00:00:00Z","active":true,"created_at":%q},
 				{"id":4,"name":"foreign-token","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-72*time.Hour).Format(time.RFC3339),
@@ -139,8 +226,8 @@ func TestDeleteProjectTokens_ShouldReturnRevokeErrors(t *testing.T) {
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tt-service-old","active":true,"created_at":%q},
-				{"id":2,"name":"tt-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-2026-01-01T00:00:00Z","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-2026-01-02T00:00:00Z","active":true,"created_at":%q}
 			]`, time.Now().Add(-72*time.Hour).Format(time.RFC3339), time.Now().Add(-48*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			http.Error(w, "revoke failed", http.StatusInternalServerError)
@@ -166,9 +253,9 @@ func TestDeleteProjectTokens_ShouldIgnoreRevokedAndInactiveTokens(t *testing.T) 
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tt-service-revoked","active":false,"revoked":true,"created_at":%q},
-				{"id":2,"name":"tt-service-inactive","active":false,"created_at":%q},
-				{"id":3,"name":"tt-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-2026-01-01T00:00:00Z","active":false,"revoked":true,"created_at":%q},
+				{"id":2,"name":"tt-service-2026-01-02T00:00:00Z","active":false,"created_at":%q},
+				{"id":3,"name":"tt-service-2026-01-03T00:00:00Z","active":true,"created_at":%q}
 			]`,
 				time.Now().Add(-96*time.Hour).Format(time.RFC3339),
 				time.Now().Add(-84*time.Hour).Format(time.RFC3339),
@@ -199,8 +286,8 @@ func TestDeleteProjectTokens_ShouldNotDeleteWhenGracePeriodHasNotPassed(t *testi
 			_, _ = w.Write([]byte(`{"id":42,"name":"service"}`))
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v4/projects/42/access_tokens":
 			_, _ = w.Write([]byte(fmt.Sprintf(`[
-				{"id":1,"name":"tt-service-old","active":true,"created_at":%q},
-				{"id":2,"name":"tt-service-newest","active":true,"created_at":%q}
+				{"id":1,"name":"tt-service-2026-01-01T00:00:00Z","active":true,"created_at":%q},
+				{"id":2,"name":"tt-service-2026-01-02T00:00:00Z","active":true,"created_at":%q}
 			]`, time.Now().Add(-20*time.Hour).Format(time.RFC3339), time.Now().Add(-10*time.Hour).Format(time.RFC3339))))
 		case r.Method == http.MethodDelete:
 			deleteCalls = append(deleteCalls, r.URL.Path)

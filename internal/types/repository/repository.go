@@ -139,26 +139,27 @@ type (
 		Path string `yaml:"path"`
 	}
 	Repository struct {
-		RepoName          *string   `yaml:"repoName,omitempty"`
-		GroupName         *string   `yaml:"groupName,omitempty"`
-		Name              string    `yaml:"name"`
-		Permissions       []string  `yaml:"permissions"`
-		AccessLevel       *string   `yaml:"accessLevel,omitempty"`
-		RotationThreshold *Duration `yaml:"rotationThreshold"`
-		GracePeriod       *Duration `yaml:"gracePeriod"`
-		Lifetime          Duration  `yaml:"lifetime"`
-		SecretStore       string    `yaml:"secretStore,omitempty"`
-		VaultPath         *string   `yaml:"vaultPath,omitempty"`
-		VaultKey          *string   `yaml:"vaultKey,omitempty"`
-		Mount             *string   `yaml:"vaultMount,omitempty"`
-		VaultAuthMethod   *string   `yaml:"vaultAuthMethod,omitempty"`
-		VaultAuthRole     *string   `yaml:"vaultAuthRole,omitempty"`
-		FilePath          *string   `yaml:"filePath,omitempty"`
-		AWSSecretName     *string   `yaml:"awsSecretName,omitempty"`
-		AWSRegion         *string   `yaml:"awsRegion,omitempty"`
-		K8sNamespace      *string   `yaml:"k8sNamespace,omitempty"`
-		K8sSecretName     *string   `yaml:"k8sSecretName,omitempty"`
-		K8sSecretKey      *string   `yaml:"k8sSecretKey,omitempty"`
+		RepoName          *string          `yaml:"repoName,omitempty"`
+		GroupName         *string          `yaml:"groupName,omitempty"`
+		Name              string           `yaml:"name"`
+		Permissions       []string         `yaml:"permissions"`
+		AccessLevel       *string          `yaml:"accessLevel,omitempty"`
+		RotationThreshold *Duration        `yaml:"rotationThreshold"`
+		GracePeriod       *Duration        `yaml:"gracePeriod"`
+		Lifetime          Duration         `yaml:"lifetime"`
+		SecretStore       string           `yaml:"secretStore,omitempty"`
+		VaultPath         *string          `yaml:"vaultPath,omitempty"`
+		VaultKey          *string          `yaml:"vaultKey,omitempty"`
+		Mount             *string          `yaml:"vaultMount,omitempty"`
+		VaultAuthMethod   *string          `yaml:"vaultAuthMethod,omitempty"`
+		VaultAuthRole     *string          `yaml:"vaultAuthRole,omitempty"`
+		FilePath          *string          `yaml:"filePath,omitempty"`
+		AWSSecretName     *string          `yaml:"awsSecretName,omitempty"`
+		AWSRegion         *string          `yaml:"awsRegion,omitempty"`
+		K8sNamespace      *string          `yaml:"k8sNamespace,omitempty"`
+		K8sSecretName     *string          `yaml:"k8sSecretName,omitempty"`
+		K8sSecretKey      *string          `yaml:"k8sSecretKey,omitempty"`
+		Now               func() time.Time `yaml:"-" json:"-"`
 	}
 )
 
@@ -550,25 +551,34 @@ func (r *Repository) ParseTokenName(prefix string, token string) (bool, error) {
 	if !strings.HasPrefix(token, format) {
 		return false, fmt.Errorf("token %v does not adhere to format %v, skipping", token, format)
 	}
+	timestamp := strings.TrimPrefix(token, format)
+	if _, err := time.Parse(time.RFC3339, timestamp); err != nil {
+		return false, fmt.Errorf("token %v does not have a valid RFC3339 timestamp suffix: %w", token, err)
+	}
 	return true, nil
 }
 
 func (r *Repository) GetExpiryDate() (*time.Time, error) {
-	expiryDate := time.Now().Add(r.Lifetime.ToDuration())
+	return r.getExpiryDateAt(r.CurrentTime())
+}
+
+func (r *Repository) getExpiryDateAt(now time.Time) (*time.Time, error) {
+	expiryDate := now.Add(r.Lifetime.ToDuration())
 
 	return &expiryDate, nil
 }
 
 func (r *Repository) ShouldBeRenewed(token any) (bool, error) {
 	l := logger.GetLogger()
+	now := r.CurrentTime()
 	switch t := token.(type) {
 	case *gitlab.ProjectAccessToken:
 		l.Info("Checking project access token")
-		return thresholdExceeded(r, t.ExpiresAt)
+		return thresholdExceededAt(r, t.ExpiresAt, now)
 
 	case *gitlab.GroupAccessToken:
 		l.Info("Checking group access token")
-		return thresholdExceeded(r, t.ExpiresAt)
+		return thresholdExceededAt(r, t.ExpiresAt, now)
 	case *gitlab.PersonalAccessToken:
 		l.Warn("Personal access token is not supported yet")
 		return false, fmt.Errorf("personal access token is not supported yet, %w", ErrInvalidTokenType)
@@ -578,6 +588,10 @@ func (r *Repository) ShouldBeRenewed(token any) (bool, error) {
 }
 
 func (r *Repository) NewTokenName(prefix string) (string, error) {
+	return r.newTokenNameAt(prefix, r.CurrentTime())
+}
+
+func (r *Repository) newTokenNameAt(prefix string, now time.Time) (string, error) {
 	if prefix == "" {
 		return "", ErrInvalidPrefix
 	}
@@ -585,7 +599,7 @@ func (r *Repository) NewTokenName(prefix string) (string, error) {
 		return "", fmt.Errorf("repository token name cannot be empty")
 	}
 
-	return tokenNamePrefix(prefix, r.Name) + time.Now().Format(time.RFC3339), nil
+	return tokenNamePrefix(prefix, r.Name) + now.Format(time.RFC3339), nil
 }
 
 func (r *Repository) CheckKeyRotationAndTokenAge() error {
@@ -603,6 +617,17 @@ func (r *Repository) CheckKeyRotationAndTokenAge() error {
 }
 
 func thresholdExceeded(r *Repository, expiresAt *gitlab.ISOTime) (bool, error) {
+	return thresholdExceededAt(r, expiresAt, r.CurrentTime())
+}
+
+func (r *Repository) CurrentTime() time.Time {
+	if r != nil && r.Now != nil {
+		return r.Now()
+	}
+	return time.Now()
+}
+
+func thresholdExceededAt(r *Repository, expiresAt *gitlab.ISOTime, now time.Time) (bool, error) {
 	if expiresAt == nil {
 		return false, ErrMissingTokenExpiry
 	}
@@ -611,7 +636,7 @@ func thresholdExceeded(r *Repository, expiresAt *gitlab.ISOTime) (bool, error) {
 		return false, err
 	}
 
-	renewalThreshold := time.Now().Add(r.RotationThreshold.ToDuration())
+	renewalThreshold := now.Add(r.RotationThreshold.ToDuration())
 	return !expiresAtTime.After(renewalThreshold), nil
 }
 

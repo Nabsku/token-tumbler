@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [2.0.0] - 2026-05-02
+
+
+### Features
+
+- Redesign token config schema ([13d8a7f](https://github.com/Nabsku/token-tumbler/commit/13d8a7f2897ad8308b3060ce31d14425627208e4))
 ## [1.1.6] - 2026-05-02
 
 
