@@ -4,6 +4,12 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [2.1.0] - 2026-05-03
+
+
+### Tests
+
+- Add deterministic rotation coverage ([660bc73](https://github.com/Nabsku/token-tumbler/commit/660bc735f263e1990b213fdef45f21b3e031b8bb))
 ## [2.0.0] - 2026-05-02
 
 
