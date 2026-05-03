@@ -616,10 +616,6 @@ func (r *Repository) CheckKeyRotationAndTokenAge() error {
 	return nil
 }
 
-func thresholdExceeded(r *Repository, expiresAt *gitlab.ISOTime) (bool, error) {
-	return thresholdExceededAt(r, expiresAt, r.CurrentTime())
-}
-
 func (r *Repository) CurrentTime() time.Time {
 	if r != nil && r.Now != nil {
 		return r.Now()

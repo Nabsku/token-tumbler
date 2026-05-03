@@ -51,7 +51,9 @@ func compileConfigSchema(t *testing.T) *jsonschema.Schema {
 
 	schemaJSON, err := os.Open("config.schema.json")
 	require.NoError(t, err)
-	defer schemaJSON.Close()
+	defer func() {
+		require.NoError(t, schemaJSON.Close())
+	}()
 
 	doc, err := jsonschema.UnmarshalJSON(schemaJSON)
 	require.NoError(t, err)

@@ -4,6 +4,22 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [2.1.0] - 2026-05-03
+
+
+### Bug fixes
+
+- Resolve lint issues ([83b32e5](https://github.com/Nabsku/token-tumbler/commit/83b32e5cc36c4cf71c46c099d96c888c792c00d4))
+
+
+### Maintenance
+
+- Bump the github-actions group with 8 updates ([9fe75eb](https://github.com/Nabsku/token-tumbler/commit/9fe75eb482f7dc37bc14fa92c6f703919cdf032d))
+
+
+### Tests
+
+- Add deterministic rotation coverage ([660bc73](https://github.com/Nabsku/token-tumbler/commit/660bc735f263e1990b213fdef45f21b3e031b8bb))
 ## [2.0.0] - 2026-05-02
 
 
