@@ -4,12 +4,23 @@ All notable user-facing changes are documented here and in [GitHub Releases](htt
 
 This project follows semantic versioning for tagged releases where practical.
 
+## [Unreleased]
+
+
+### Maintenance
+
+- Bump the go-dependencies group with 3 updates ([14500f6](https://github.com/Nabsku/token-tumbler/commit/14500f6cb96a87781a922559117ec5738503d28b))
 ## [2.1.0] - 2026-05-03
 
 
 ### Bug fixes
 
 - Resolve lint issues ([83b32e5](https://github.com/Nabsku/token-tumbler/commit/83b32e5cc36c4cf71c46c099d96c888c792c00d4))
+
+
+### Documentation
+
+- Update changelog for v2.1.0 ([1669eba](https://github.com/Nabsku/token-tumbler/commit/1669eba0a40899604389108f53b88e1b41d2f6f1))
 
 
 ### Maintenance
