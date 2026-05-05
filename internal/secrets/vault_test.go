@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -276,19 +277,40 @@ func TestVaultSecret_WriteMetadata_ShouldRetryOnCASConflict(t *testing.T) {
 	assert.Equal(t, 2, callCount)
 }
 
-func TestVaultSecret_DeleteCreatedSecret_ShouldDeleteCreatedSecret(t *testing.T) {
+func TestVaultSecret_DeleteCreatedSecret_ShouldRemoveTokenFromFirstWrite(t *testing.T) {
+	putCalls := 0
+	getCalls := 0
 	deleteCalls := 0
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet:
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+			getCalls++
+			if getCalls == 1 {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"new-token"},"metadata":{"version":1}}}`))
 		case r.Method == http.MethodPut:
+			var payload struct {
+				Data map[string]interface{} `json:"data"`
+			}
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &payload))
+			putCalls++
+			if putCalls == 1 {
+				assert.Equal(t, "new-token", payload.Data["gitlab_token"])
+			} else {
+				assert.Empty(t, payload.Data)
+			}
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":1}}}`))
 		case r.Method == http.MethodDelete:
 			deleteCalls++
 			w.WriteHeader(http.StatusNoContent)
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
 		}
@@ -304,7 +326,9 @@ func TestVaultSecret_DeleteCreatedSecret_ShouldDeleteCreatedSecret(t *testing.T)
 
 	err = secret.DeleteCreatedSecret(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 1, deleteCalls)
+	assert.Equal(t, 2, getCalls)
+	assert.Equal(t, 2, putCalls)
+	assert.Equal(t, 0, deleteCalls)
 }
 
 func TestVaultSecret_DeleteCreatedSecret_ShouldNoopWhenSecretAlreadyExisted(t *testing.T) {
@@ -337,4 +361,136 @@ func TestVaultSecret_DeleteCreatedSecret_ShouldNoopWhenSecretAlreadyExisted(t *t
 	err = secret.DeleteCreatedSecret(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, 0, deleteCalls)
+}
+
+func TestVaultSecret_DeleteCreatedSecret_ShouldSkipWhenTokenWasModified(t *testing.T) {
+	getCalls := 0
+	putCalls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			getCalls++
+			if getCalls == 1 {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"attacker-token"},"metadata":{"version":1}}}`))
+		case r.Method == http.MethodPut:
+			putCalls++
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":1}}}`))
+		default:
+			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "token key in vault secret")
+	assert.Equal(t, 2, getCalls)
+	assert.Equal(t, 1, putCalls)
+}
+
+func TestVaultSecret_DeleteCreatedSecret_ShouldFailOnCleanupCASConflict(t *testing.T) {
+	getCalls := 0
+	putCalls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			getCalls++
+			if getCalls == 1 {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"new-token"},"metadata":{"version":1}}}`))
+		case r.Method == http.MethodPut:
+			putCalls++
+			var payload struct {
+				Data map[string]interface{} `json:"data"`
+			}
+			body, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(body, &payload))
+			if putCalls == 1 {
+				assert.Equal(t, "new-token", payload.Data["gitlab_token"])
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"data":{"metadata":{"version":1}}}`))
+				return
+			}
+			assert.Empty(t, payload.Data)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":["check-and-set parameter did not match the current version"]}`))
+		default:
+			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "removing token key from vault secret")
+	assert.Equal(t, 2, getCalls)
+	assert.Equal(t, 2, putCalls)
+}
+
+func TestVaultSecret_DeleteCreatedSecret_ShouldFailOnCleanupPermissionDenied(t *testing.T) {
+	getCalls := 0
+	putCalls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			getCalls++
+			if getCalls == 1 {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"new-token"},"metadata":{"version":1}}}`))
+		case r.Method == http.MethodPut:
+			putCalls++
+			if putCalls == 1 {
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write([]byte(`{"data":{"metadata":{"version":1}}}`))
+				return
+			}
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"errors":["permission denied"]}`))
+		default:
+			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "removing token key from vault secret")
+	assert.Equal(t, 2, getCalls)
+	assert.Equal(t, 2, putCalls)
 }

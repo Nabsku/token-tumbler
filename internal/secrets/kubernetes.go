@@ -14,11 +14,13 @@ import (
 )
 
 type K8sSecret struct {
-	Namespace      string
-	SecretName     string
-	SecretKey      string
-	Client         kubernetes.Interface
-	createdOnWrite bool
+	Namespace              string
+	SecretName             string
+	SecretKey              string
+	Client                 kubernetes.Interface
+	createdOnWrite         bool
+	createdResourceVersion string
+	createdTokenValue      string
 }
 
 func (ks *K8sSecret) InitClient(ctx context.Context) error {
@@ -83,6 +85,10 @@ func (ks *K8sSecret) Read(ctx context.Context) (string, error) {
 }
 
 func (ks *K8sSecret) Write(ctx context.Context, value string) error {
+	ks.createdOnWrite = false
+	ks.createdResourceVersion = ""
+	ks.createdTokenValue = ""
+
 	err := ks.InitClient(ctx)
 	if err != nil {
 		return fmt.Errorf("initializing kubernetes client: %w", err)
@@ -114,16 +120,20 @@ func (ks *K8sSecret) Write(ctx context.Context, value string) error {
 					secretKey: []byte(value),
 				},
 			}
-			_, err = ks.Client.CoreV1().Secrets(namespace).Create(ctx, newSecret, metav1.CreateOptions{})
+			createdSecret, err := ks.Client.CoreV1().Secrets(namespace).Create(ctx, newSecret, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("creating kubernetes secret %s/%s: %w", namespace, secretName, err)
 			}
 			ks.createdOnWrite = true
+			ks.createdResourceVersion = createdSecret.ResourceVersion
+			ks.createdTokenValue = value
 			return nil
 		}
 		return fmt.Errorf("reading kubernetes secret %s/%s: %w", namespace, secretName, err)
 	}
 	ks.createdOnWrite = false
+	ks.createdResourceVersion = ""
+	ks.createdTokenValue = ""
 
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
@@ -157,14 +167,42 @@ func (ks *K8sSecret) DeleteCreatedSecret(ctx context.Context) error {
 		return fmt.Errorf("initializing kubernetes client: %w", err)
 	}
 
-	if err := ks.Client.CoreV1().Secrets(namespace).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
+	secret, err := ks.Client.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
+	if err != nil {
 		if errors.IsNotFound(err) {
 			ks.createdOnWrite = false
+			ks.createdResourceVersion = ""
+			ks.createdTokenValue = ""
 			return nil
 		}
-		return fmt.Errorf("deleting kubernetes secret %s/%s: %w", namespace, secretName, err)
+		return fmt.Errorf("reading kubernetes secret %s/%s for cleanup: %w", namespace, secretName, err)
+	}
+
+	if ks.createdResourceVersion != "" && secret.ResourceVersion != ks.createdResourceVersion {
+		ks.createdOnWrite = false
+		ks.createdResourceVersion = ""
+		ks.createdTokenValue = ""
+		return fmt.Errorf("kubernetes secret %s/%s changed since token was written; skipping rollback token key cleanup", namespace, secretName)
+	}
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
+	if current, ok := secret.Data[ks.SecretKey]; !ok || ks.createdTokenValue != string(current) {
+		ks.createdOnWrite = false
+		ks.createdResourceVersion = ""
+		ks.createdTokenValue = ""
+		return fmt.Errorf("token key in kubernetes secret %s/%s was modified after write; skipping rollback token key cleanup", namespace, secretName)
+	}
+
+	delete(secret.Data, ks.SecretKey)
+
+	_, err = ks.Client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("updating kubernetes secret %s/%s: %w", namespace, secretName, err)
 	}
 	ks.createdOnWrite = false
+	ks.createdResourceVersion = ""
+	ks.createdTokenValue = ""
 	return nil
 }
 

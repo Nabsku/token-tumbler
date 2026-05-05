@@ -11,7 +11,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8sTesting "k8s.io/client-go/testing"
 )
 
 var _ SecretStore = (*K8sSecret)(nil)
@@ -153,9 +155,11 @@ func TestK8sSecret_DeleteCreatedSecret_ShouldDeleteCreatedSecret(t *testing.T) {
 	err := secret.DeleteCreatedSecret(context.Background())
 	require.NoError(t, err)
 
-	_, err = client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
-	require.Error(t, err)
-	assert.True(t, k8serrors.IsNotFound(err))
+	created, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	_, tokenPresent := created.Data["token"]
+	assert.False(t, tokenPresent)
+	assert.True(t, len(created.Data) == 0)
 }
 
 func TestK8sSecret_DeleteCreatedSecret_ShouldNoopOnExistingSecret(t *testing.T) {
@@ -185,6 +189,93 @@ func TestK8sSecret_DeleteCreatedSecret_ShouldNoopOnExistingSecret(t *testing.T) 
 	require.NoError(t, err)
 	assert.Equal(t, []byte("new-token-value"), updated.Data["token"])
 	assert.Equal(t, []byte("preserve-me"), updated.Data["other"])
+}
+
+func TestK8sSecret_DeleteCreatedSecret_ShouldSkipWhenSecretWasModifiedByAnotherActor(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	secret := &K8sSecret{
+		Namespace:  "default",
+		SecretName: "my-secret",
+		SecretKey:  "token",
+		Client:     client,
+	}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token"))
+
+	existing, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	secret.createdResourceVersion = "1"
+	existing.ResourceVersion = "2"
+	existing.Data["token"] = []byte("attacker-token")
+	updated, err := client.CoreV1().Secrets("default").Update(context.Background(), existing, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "changed since token was written")
+
+	current, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, []byte("attacker-token"), current.Data["token"])
+	assert.Equal(t, updated.ResourceVersion, current.ResourceVersion)
+}
+
+func TestK8sSecret_DeleteCreatedSecret_ShouldSkipWhenTokenWasModifiedButResourceVersionCleared(t *testing.T) {
+	client := fake.NewSimpleClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "my-secret",
+			Namespace:       "default",
+			ResourceVersion: "123",
+		},
+		Data: map[string][]byte{
+			"token": []byte("attacker-token"),
+		},
+	})
+
+	secret := &K8sSecret{
+		Namespace:              "default",
+		SecretName:             "my-secret",
+		SecretKey:              "token",
+		Client:                 client,
+		createdOnWrite:         true,
+		createdTokenValue:      "expected-token",
+		createdResourceVersion: "",
+	}
+
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "token key in kubernetes secret")
+
+	current, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, []byte("attacker-token"), current.Data["token"])
+}
+
+func TestK8sSecret_DeleteCreatedSecret_ShouldReturnErrorWhenUpdateIsForbidden(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	secret := &K8sSecret{
+		Namespace:  "default",
+		SecretName: "my-secret",
+		SecretKey:  "token",
+		Client:     client,
+	}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token"))
+
+	client.Fake.PrependReactor("update", "secrets", func(_ k8sTesting.Action) (bool, runtime.Object, error) {
+		return true, nil, &k8serrors.StatusError{ErrStatus: metav1.Status{
+			Status:  "Failure",
+			Code:    403,
+			Reason:  metav1.StatusReasonForbidden,
+			Message: "forbidden",
+		}}
+	})
+
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "updating kubernetes secret")
 }
 
 func TestK8sSecret_Write_ShouldUpdateExistingSecret(t *testing.T) {

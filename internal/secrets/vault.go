@@ -16,13 +16,15 @@ import (
 )
 
 type VaultSecret struct {
-	Path           string
-	Key            string
-	MountPath      string
-	AuthMethod     string
-	AuthRole       string
-	Client         *vault.Client
-	createdOnWrite bool
+	Path              string
+	Key               string
+	MountPath         string
+	AuthMethod        string
+	AuthRole          string
+	Client            *vault.Client
+	createdOnWrite    bool
+	createdTokenValue string
+	createdVersion    int
 }
 
 func (vs *VaultSecret) InitClient(ctx context.Context) error {
@@ -173,6 +175,10 @@ func (vs *VaultSecret) Read(ctx context.Context) (string, error) {
 }
 
 func (vs *VaultSecret) Write(ctx context.Context, value string) error {
+	vs.createdOnWrite = false
+	vs.createdTokenValue = ""
+	vs.createdVersion = 0
+
 	err := vs.InitClient(ctx)
 	if err != nil {
 		return fmt.Errorf("initializing vault client: %w", err)
@@ -185,9 +191,12 @@ func (vs *VaultSecret) Write(ctx context.Context, value string) error {
 			return fmt.Errorf("preparing vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
 		}
 		vs.createdOnWrite = !secretExisted
+		vs.createdTokenValue = value
+		vs.createdVersion = version
 
 		_, errPut := vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, secretData, vault.WithCheckAndSet(version))
 		if errPut == nil {
+			vs.createdVersion = version
 			return nil
 		}
 		if !isCASConflict(errPut) {
@@ -207,14 +216,60 @@ func (vs *VaultSecret) DeleteCreatedSecret(ctx context.Context) error {
 		return fmt.Errorf("initializing vault client: %w", err)
 	}
 
-	if err := vs.Client.KVv2(vs.MountPath).Delete(ctx, vs.Path); err != nil {
+	secret, err := vs.Client.KVv2(vs.MountPath).Get(ctx, vs.Path)
+	if err != nil {
 		if isVaultNotFound(err) {
 			vs.createdOnWrite = false
+			vs.createdTokenValue = ""
+			vs.createdVersion = 0
 			return nil
 		}
-		return fmt.Errorf("deleting vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
+		return fmt.Errorf("reading vault secret %s/%s for cleanup: %w", vs.MountPath, vs.Path, err)
 	}
+
+	if secret == nil || secret.Data == nil {
+		vs.createdOnWrite = false
+		vs.createdTokenValue = ""
+		vs.createdVersion = 0
+		return nil
+	}
+
+	currentValue, ok := secret.Data[vs.Key]
+	if !ok {
+		vs.createdOnWrite = false
+		vs.createdTokenValue = ""
+		vs.createdVersion = 0
+		return fmt.Errorf("token key missing in vault secret %s/%s during rollback; skipping cleanup", vs.MountPath, vs.Path)
+	}
+	currentToken, ok := currentValue.(string)
+	if !ok || currentToken != vs.createdTokenValue {
+		vs.createdOnWrite = false
+		vs.createdTokenValue = ""
+		vs.createdVersion = 0
+		return fmt.Errorf("token key in vault secret %s/%s was modified after write; skipping cleanup", vs.MountPath, vs.Path)
+	}
+
+	cleanData := make(map[string]interface{})
+	for key, value := range secret.Data {
+		if key == vs.Key {
+			continue
+		}
+		cleanData[key] = value
+	}
+
+	version := 0
+	if secret.VersionMetadata != nil {
+		version = secret.VersionMetadata.Version
+	}
+
+	_, err = vs.Client.KVv2(vs.MountPath).Put(ctx, vs.Path, cleanData, vault.WithCheckAndSet(version))
+	if err != nil {
+		return fmt.Errorf("removing token key from vault secret %s/%s: %w", vs.MountPath, vs.Path, err)
+	}
+
 	vs.createdOnWrite = false
+	vs.createdTokenValue = ""
+	vs.createdVersion = 0
 	return nil
 }
 
