@@ -70,6 +70,29 @@ func TestFileSecret_Write_ShouldOverwriteExistingFile(t *testing.T) {
 	assert.Equal(t, os.FileMode(fileSecretMode), info.Mode().Perm())
 }
 
+func TestFileSecret_DeleteCreatedSecret_ShouldDeleteCreatedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gitlab-token")
+	secret := &FileSecret{Path: path}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token"))
+	assert.Equal(t, "new-token", mustReadFile(t, path))
+
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+	assert.NoFileExists(t, path)
+}
+
+func TestFileSecret_DeleteCreatedSecret_ShouldNoopOnExistingFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gitlab-token")
+	require.NoError(t, os.WriteFile(path, []byte("old-token"), fileSecretMode))
+	secret := &FileSecret{Path: path}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token"))
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "new-token", mustReadFile(t, path))
+}
+
 func TestFileSecret_Write_ShouldFailWhenParentDirectoryDoesNotExist(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "missing")
 	path := filepath.Join(dir, "gitlab-token")
@@ -193,4 +216,12 @@ func TestFileSecret_Write_ShouldRejectSymlinkParent(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "symlink")
+}
+
+func mustReadFile(t *testing.T, path string) string {
+	t.Helper()
+
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+	return string(b)
 }

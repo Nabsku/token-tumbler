@@ -14,10 +14,11 @@ import (
 )
 
 type K8sSecret struct {
-	Namespace  string
-	SecretName string
-	SecretKey  string
-	Client     kubernetes.Interface
+	Namespace      string
+	SecretName     string
+	SecretKey      string
+	Client         kubernetes.Interface
+	createdOnWrite bool
 }
 
 func (ks *K8sSecret) InitClient(ctx context.Context) error {
@@ -117,10 +118,12 @@ func (ks *K8sSecret) Write(ctx context.Context, value string) error {
 			if err != nil {
 				return fmt.Errorf("creating kubernetes secret %s/%s: %w", namespace, secretName, err)
 			}
+			ks.createdOnWrite = true
 			return nil
 		}
 		return fmt.Errorf("reading kubernetes secret %s/%s: %w", namespace, secretName, err)
 	}
+	ks.createdOnWrite = false
 
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
@@ -131,7 +134,37 @@ func (ks *K8sSecret) Write(ctx context.Context, value string) error {
 	if err != nil {
 		return fmt.Errorf("updating kubernetes secret %s/%s: %w", namespace, secretName, err)
 	}
+	ks.createdOnWrite = false
 
+	return nil
+}
+
+func (ks *K8sSecret) DeleteCreatedSecret(ctx context.Context) error {
+	namespace := strings.TrimSpace(ks.Namespace)
+	secretName := strings.TrimSpace(ks.SecretName)
+	if namespace == "" {
+		return fmt.Errorf("k8sNamespace must not be blank")
+	}
+	if secretName == "" {
+		return fmt.Errorf("k8sSecretName must not be blank")
+	}
+	if !ks.createdOnWrite {
+		return nil
+	}
+
+	err := ks.InitClient(ctx)
+	if err != nil {
+		return fmt.Errorf("initializing kubernetes client: %w", err)
+	}
+
+	if err := ks.Client.CoreV1().Secrets(namespace).Delete(ctx, secretName, metav1.DeleteOptions{}); err != nil {
+		if errors.IsNotFound(err) {
+			ks.createdOnWrite = false
+			return nil
+		}
+		return fmt.Errorf("deleting kubernetes secret %s/%s: %w", namespace, secretName, err)
+	}
+	ks.createdOnWrite = false
 	return nil
 }
 

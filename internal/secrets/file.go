@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +14,8 @@ import (
 const fileSecretMode = 0o600
 
 type FileSecret struct {
-	Path string
+	Path           string
+	createdOnWrite bool
 }
 
 func (fs *FileSecret) InitClient(_ context.Context) error {
@@ -38,6 +40,7 @@ func (fs *FileSecret) Write(_ context.Context, value string) error {
 	if path == "" {
 		return fmt.Errorf("filePath must not be blank")
 	}
+	fs.createdOnWrite = false
 
 	if err := helper.ValidateSecureFilePath(path); err != nil {
 		return fmt.Errorf("file secret path validation failed: %w", err)
@@ -50,6 +53,15 @@ func (fs *FileSecret) Write(_ context.Context, value string) error {
 	}
 	if !info.IsDir() {
 		return fmt.Errorf("file secret parent path %s is not a directory", dir)
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("checking existing file secret %s: %w", path, err)
+		}
+		fs.createdOnWrite = true
+	} else {
+		fs.createdOnWrite = false
 	}
 
 	tmp, err := os.CreateTemp(dir, ".token-tumbler-*")
@@ -80,6 +92,26 @@ func (fs *FileSecret) Write(_ context.Context, value string) error {
 	}
 
 	cleanup = false
+	return nil
+}
+
+func (fs *FileSecret) DeleteCreatedSecret(_ context.Context) error {
+	if !fs.createdOnWrite {
+		return nil
+	}
+
+	path := strings.TrimSpace(fs.Path)
+	if path == "" {
+		return fmt.Errorf("filePath must not be blank")
+	}
+	if err := os.Remove(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			fs.createdOnWrite = false
+			return nil
+		}
+		return fmt.Errorf("deleting file secret %s: %w", path, err)
+	}
+	fs.createdOnWrite = false
 	return nil
 }
 

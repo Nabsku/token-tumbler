@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -135,6 +136,55 @@ func TestK8sSecret_Write_ShouldCreateNewSecret(t *testing.T) {
 	created, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, []byte("new-token-value"), created.Data["token"])
+}
+
+func TestK8sSecret_DeleteCreatedSecret_ShouldDeleteCreatedSecret(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	secret := &K8sSecret{
+		Namespace:  "default",
+		SecretName: "my-secret",
+		SecretKey:  "token",
+		Client:     client,
+	}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token-value"))
+
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+
+	_, err = client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.Error(t, err)
+	assert.True(t, k8serrors.IsNotFound(err))
+}
+
+func TestK8sSecret_DeleteCreatedSecret_ShouldNoopOnExistingSecret(t *testing.T) {
+	client := fake.NewSimpleClientset(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-secret",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"token": []byte("old-token"),
+			"other": []byte("preserve-me"),
+		},
+	})
+
+	secret := &K8sSecret{
+		Namespace:  "default",
+		SecretName: "my-secret",
+		SecretKey:  "token",
+		Client:     client,
+	}
+
+	require.NoError(t, secret.Write(context.Background(), "new-token-value"))
+	err := secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+
+	updated, err := client.CoreV1().Secrets("default").Get(context.Background(), "my-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, []byte("new-token-value"), updated.Data["token"])
+	assert.Equal(t, []byte("preserve-me"), updated.Data["other"])
 }
 
 func TestK8sSecret_Write_ShouldUpdateExistingSecret(t *testing.T) {

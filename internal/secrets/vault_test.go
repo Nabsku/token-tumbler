@@ -275,3 +275,66 @@ func TestVaultSecret_WriteMetadata_ShouldRetryOnCASConflict(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, callCount)
 }
+
+func TestVaultSecret_DeleteCreatedSecret_ShouldDeleteCreatedSecret(t *testing.T) {
+	deleteCalls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"errors":["secret not found"]}`))
+		case r.Method == http.MethodPut:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":1}}}`))
+		case r.Method == http.MethodDelete:
+			deleteCalls++
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, deleteCalls)
+}
+
+func TestVaultSecret_DeleteCreatedSecret_ShouldNoopWhenSecretAlreadyExisted(t *testing.T) {
+	deleteCalls := 0
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"data":{"gitlab_token":"old-token"},"metadata":{"version":1}}}`))
+		case r.Method == http.MethodPut:
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"data":{"metadata":{"version":2}}}`))
+		case r.Method == http.MethodDelete:
+			deleteCalls++
+			w.WriteHeader(http.StatusNoContent)
+			t.Fatalf("unexpected vault delete call")
+		default:
+			t.Fatalf("unexpected vault request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer ts.Close()
+
+	client, err := vault.NewClient(&vault.Config{Address: ts.URL})
+	require.NoError(t, err)
+
+	secret := &VaultSecret{Path: "gitlab/project", Key: "gitlab_token", MountPath: "kv", Client: client}
+	err = secret.Write(context.Background(), "new-token")
+	require.NoError(t, err)
+
+	err = secret.DeleteCreatedSecret(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 0, deleteCalls)
+}

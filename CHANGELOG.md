@@ -7,6 +7,11 @@ This project follows semantic versioning for tagged releases where practical.
 ## [Unreleased]
 
 
+### Bug fixes
+
+- Prevent metadata-bound token rotation from being blocked by newer spoofed tokens ([97d77c3](https://github.com/Nabsku/token-tumbler/commit/97d77c39be588894b2f4d084c0b7ca0e45495fd2))
+
+
 ### Maintenance
 
 - Doc changes ([d95f04e](https://github.com/Nabsku/token-tumbler/commit/d95f04e062b43e8a8408bfee5b70873a44b60531))
