@@ -9,6 +9,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Bug fixes
 
+- Prevent stale first-write secret state on token persist rollback ([b47b3e8](https://github.com/Nabsku/token-tumbler/commit/b47b3e8fb405f19a8b842f1bcae5caf2cdb3dca7))
+
 - Prevent metadata-bound token rotation from being blocked by newer spoofed tokens ([97d77c3](https://github.com/Nabsku/token-tumbler/commit/97d77c39be588894b2f4d084c0b7ca0e45495fd2))
 
 

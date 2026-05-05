@@ -6,3 +6,7 @@ config.yaml
 *.log
 e2e/
 docs/
+.env.*
+*.local.yaml
+*.secret.yaml
+*.secrets.yaml
