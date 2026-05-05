@@ -2,12 +2,12 @@
 
 Token Tumbler uses one token to do the rotating, then creates other tokens for your apps or jobs to use. Those are easy to mix up.
 
-| Setting | Meaning | Use |
-| --- | --- | --- |
-| `GITLAB_TOKEN` | The token Token Tumbler runs with. It lists existing project or group access tokens, creates new ones, and deletes old ones. | Use a bot or service account token with `api`. Give that account access only to the projects or groups in your config. |
-| `targets[].generatedToken.scopes` | The scopes on the tokens Token Tumbler creates. | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access. |
-| `targets[].generatedToken.accessLevel` | The GitLab role on the tokens Token Tumbler creates. | Set the lowest role that works, such as `reporter`. Omit it to use GitLab's default. |
-| `destination.vault.key`, `destination.kubernetesSecret.key`, or `destination.file.path` | Where Token Tumbler writes the new token value. | Use the key or path your app already reads, for example `gitlab_token` or `token`. |
+| Setting                                                                                 | Meaning                                                                                                                      | Use                                                                                                                    |
+| --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `GITLAB_TOKEN`                                                                          | The token Token Tumbler runs with. It lists existing project or group access tokens, creates new ones, and deletes old ones. | Use a bot or service account token with `api`. Give that account access only to the projects or groups in your config. |
+| `targets[].generatedToken.scopes`                                                       | The scopes on the tokens Token Tumbler creates.                                                                              | Pick the scopes the consuming app actually needs. Avoid `api` unless that app needs API access.                        |
+| `targets[].generatedToken.accessLevel`                                                  | The GitLab role on the tokens Token Tumbler creates.                                                                         | Set the lowest role that works, such as `reporter`. Omit it to use GitLab's default.                                   |
+| `destination.vault.key`, `destination.kubernetesSecret.key`, or `destination.file.path` | Where Token Tumbler writes the new token value.                                                                              | Use the key or path your app already reads, for example `gitlab_token` or `token`.                                     |
 
 ## `GITLAB_TOKEN`
 
@@ -47,12 +47,12 @@ targets:
 
 Some common choices:
 
-| App or job needs to | Scope |
-| --- | --- |
-| Clone or fetch source | `read_repository` |
-| Pull from a registry | `read_registry` |
+| App or job needs to        | Scope                                |
+| -------------------------- | ------------------------------------ |
+| Clone or fetch source      | `read_repository`                    |
+| Pull from a registry       | `read_registry`                      |
 | Push to a repo or registry | `write_repository`, `write_registry` |
-| Call GitLab APIs | `api` |
+| Call GitLab APIs           | `api`                                |
 
 Start narrow. `api` is convenient, but it is usually more than a deploy key, CI job, or sync process needs.
 
@@ -60,13 +60,13 @@ Start narrow. `api` is convenient, but it is usually more than a deploy key, CI 
 
 `accessLevel` maps to GitLab's access level enum:
 
-| Value | GitLab role |
-| --- | --- |
-| `guest` | Guest |
-| `reporter` | Reporter |
-| `developer` | Developer |
-| `maintainer` | Maintainer |
-| `owner` | Owner |
+| Value        | GitLab role |
+| ------------ | ----------- |
+| `guest`      | Guest       |
+| `reporter`   | Reporter    |
+| `developer`  | Developer   |
+| `maintainer` | Maintainer  |
+| `owner`      | Owner       |
 
 Use the lowest role that still lets the consuming app work. For many read-only jobs, `reporter` with `read_repository` is enough. GitLab may reject roles that are not allowed for a project or group token on your plan or target type.
 
@@ -101,7 +101,7 @@ destination:
 Log in with the same token you plan to pass as `GITLAB_TOKEN`:
 
 ```sh
-glab auth login --hostname gitlab.example.com --token "$GITLAB_TOKEN"
+glab auth login --hostname gitlab.example.com
 ```
 
 Check which user the token belongs to:
