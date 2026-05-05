@@ -3,6 +3,8 @@ package leaderelection
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -10,6 +12,19 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+)
+
+const activeLeaderWorkDrainTimeout = 5 * time.Second
+
+type leaderElectorRunner interface {
+	Run(context.Context)
+}
+
+var (
+	inClusterClientFunc  = inClusterClient
+	newLeaderElectorFunc = func(config leaderelection.LeaderElectionConfig) (leaderElectorRunner, error) {
+		return leaderelection.NewLeaderElector(config)
+	}
 )
 
 type Runner struct {
@@ -22,7 +37,7 @@ func NewRunner(config Config, logger *zap.Logger) *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context, onStartedLeading func(context.Context)) error {
-	client, err := inClusterClient()
+	client, err := inClusterClientFunc()
 	if err != nil {
 		return err
 	}
@@ -38,14 +53,18 @@ func (r *Runner) Run(ctx context.Context, onStartedLeading func(context.Context)
 		},
 	}
 
+	activeLeadership := newActiveLeadership()
+
 	leaderConfig := leaderelection.LeaderElectionConfig{
 		Lock:            lock,
 		LeaseDuration:   r.config.LeaseDuration,
 		RenewDeadline:   r.config.RenewDeadline,
 		RetryPeriod:     r.config.RetryPeriod,
-		ReleaseOnCancel: true,
+		ReleaseOnCancel: false,
 		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: onStartedLeading,
+			OnStartedLeading: func(leaderCtx context.Context) {
+				activeLeadership.run(leaderCtx, onStartedLeading)
+			},
 			OnStoppedLeading: func() {
 				r.logger.Warn("leader election lost; stopping active runner", zap.String("lease", r.config.LeaseName))
 			},
@@ -59,7 +78,7 @@ func (r *Runner) Run(ctx context.Context, onStartedLeading func(context.Context)
 		},
 	}
 
-	leaderElector, err := leaderelection.NewLeaderElector(leaderConfig)
+	leaderElector, err := newLeaderElectorFunc(leaderConfig)
 	if err != nil {
 		return fmt.Errorf("creating leader elector: %w", err)
 	}
@@ -70,7 +89,30 @@ func (r *Runner) Run(ctx context.Context, onStartedLeading func(context.Context)
 		zap.String("lease", r.config.LeaseName),
 		zap.String("identity", r.config.Identity),
 	)
-	leaderElector.Run(ctx)
+
+	electorCtx, cancelElector := context.WithCancel(context.Background())
+	defer cancelElector()
+
+	electorDone := make(chan struct{})
+	go func() {
+		defer close(electorDone)
+		leaderElector.Run(electorCtx)
+	}()
+
+	select {
+	case <-ctx.Done():
+		if ok := activeLeadership.stopAndWait(activeLeaderWorkDrainTimeout); !ok {
+			r.logger.Warn(
+				"timed out waiting for leader work to stop before terminating election",
+				zap.Duration("timeout", activeLeaderWorkDrainTimeout),
+				zap.String("lease", r.config.LeaseName),
+			)
+		}
+		cancelElector()
+		<-electorDone
+	case <-electorDone:
+	}
+
 	return nil
 }
 
@@ -84,4 +126,97 @@ func inClusterClient() (kubernetes.Interface, error) {
 		return nil, fmt.Errorf("creating kubernetes client for leader election: %w", err)
 	}
 	return client, nil
+}
+
+type activeLeadership struct {
+	mu           sync.Mutex
+	shuttingDown bool
+	activeDone   chan struct{}
+	activeCancel context.CancelFunc
+}
+
+func newActiveLeadership() *activeLeadership {
+	return &activeLeadership{}
+}
+
+func (a *activeLeadership) run(leaderCtx context.Context, callback func(context.Context)) {
+	workCtx, stopForward, done, ok := a.start()
+	if !ok {
+		return
+	}
+	defer func() {
+		close(stopForward)
+		a.finish(done)
+	}()
+
+	go func() {
+		select {
+		case <-leaderCtx.Done():
+			a.cancelActive()
+		case <-stopForward:
+		}
+	}()
+
+	callback(workCtx)
+}
+
+func (a *activeLeadership) start() (context.Context, chan struct{}, chan struct{}, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	if a.shuttingDown {
+		return nil, nil, nil, false
+	}
+
+	workCtx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	a.activeCancel = cancel
+	a.activeDone = done
+
+	return workCtx, make(chan struct{}), done, true
+}
+
+func (a *activeLeadership) finish(done chan struct{}) {
+	a.mu.Lock()
+	if a.activeDone == done {
+		a.activeCancel = nil
+		a.activeDone = nil
+	}
+	a.mu.Unlock()
+
+	close(done)
+}
+
+func (a *activeLeadership) cancelActive() {
+	a.mu.Lock()
+	cancel := a.activeCancel
+	a.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (a *activeLeadership) stopAndWait(timeout time.Duration) bool {
+	a.mu.Lock()
+	a.shuttingDown = true
+	cancel := a.activeCancel
+	done := a.activeDone
+	a.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done == nil {
+		return true
+	}
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }

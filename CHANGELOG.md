@@ -16,6 +16,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Maintenance
 
+- Exclude secret config patterns from docker build context ([6588f51](https://github.com/Nabsku/token-tumbler/commit/6588f51e32517f2f621e10961751a4e711d2dc37))
+
 - Doc changes ([d95f04e](https://github.com/Nabsku/token-tumbler/commit/d95f04e062b43e8a8408bfee5b70873a44b60531))
 
 - Bumped multiple deps ([44a081a](https://github.com/Nabsku/token-tumbler/commit/44a081a7248888e0960a03bef406025908800cc8))
