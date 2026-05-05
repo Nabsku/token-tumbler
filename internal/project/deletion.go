@@ -145,11 +145,6 @@ func checkProjectTokenDeletionAt(entry *repository.Repository, token *gitlab.Pro
 		l.Debug("Token is the preserved token, not deleting")
 		return false
 	}
-	if token.CreatedAt.After(*preserveToken.CreatedAt) {
-		l.Debug("Token is newer than the preserved token, not deleting")
-		return false
-	}
-
 	l.Debug("checking if token is older than grace period", zap.String("token_name", token.Name), zap.Int64("token_id", token.ID))
 
 	if now.After(preserveToken.CreatedAt.Add(entry.GracePeriod.ToDuration())) {

@@ -128,14 +128,14 @@ func TestResolvePreserveToken_GroupPolicy(t *testing.T) {
 	}
 }
 
-func TestCheckGroupTokenDeletionAt_DoesNotDeleteNewerOrphanThanVaultPreservedToken(t *testing.T) {
+func TestCheckGroupTokenDeletionAt_DeletesNonPreservedTokensAfterGracePeriod(t *testing.T) {
 	now := time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC)
 	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
 	preserveToken := groupAccessToken(1, now.Add(-72*time.Hour))
 	newerOrphan := groupAccessToken(2, now.Add(-48*time.Hour))
 	olderToken := groupAccessToken(3, now.Add(-96*time.Hour))
 
-	assert.False(t, checkGroupTokenDeletionAt(repo, newerOrphan, preserveToken, now))
+	assert.True(t, checkGroupTokenDeletionAt(repo, newerOrphan, preserveToken, now))
 	assert.True(t, checkGroupTokenDeletionAt(repo, olderToken, preserveToken, now))
 }
 

@@ -132,14 +132,14 @@ func TestResolvePreserveToken_ProjectPolicy(t *testing.T) {
 	}
 }
 
-func TestCheckProjectTokenDeletionAt_DoesNotDeleteNewerOrphanThanVaultPreservedToken(t *testing.T) {
+func TestCheckProjectTokenDeletionAt_DeletesNonPreservedTokensAfterGracePeriod(t *testing.T) {
 	now := time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC)
 	repo := &repository.Repository{GracePeriod: &repository.Duration{Duration: 24 * time.Hour}}
 	preserveToken := projectAccessToken(1, now.Add(-72*time.Hour))
 	newerOrphan := projectAccessToken(2, now.Add(-48*time.Hour))
 	olderToken := projectAccessToken(3, now.Add(-96*time.Hour))
 
-	assert.False(t, checkProjectTokenDeletionAt(repo, newerOrphan, preserveToken, now))
+	assert.True(t, checkProjectTokenDeletionAt(repo, newerOrphan, preserveToken, now))
 	assert.True(t, checkProjectTokenDeletionAt(repo, olderToken, preserveToken, now))
 }
 

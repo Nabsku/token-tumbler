@@ -44,12 +44,27 @@ func TestCheckProjectTokensForRenewal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CheckProjectTokensForRenewal(tt.tokens, entry)
+			got, err := CheckProjectTokensForRenewal(tt.tokens, entry, 0)
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestCheckProjectTokensForRenewal_WithVaultTokenIDOnlyCountsPersistedActiveToken(t *testing.T) {
+	entry := &repository.Repository{RotationThreshold: &repository.Duration{Duration: 48 * time.Hour}}
+
+	vaultID := int64(1)
+	vaultToken := projectTokenWithExpiry(t, time.Now().Add(24*time.Hour))
+	vaultToken.ID = vaultID
+	attackerToken := projectTokenWithExpiry(t, time.Now().Add(14*24*time.Hour))
+	attackerToken.ID = 2
+
+	got, err := CheckProjectTokensForRenewal([]*gitlab.ProjectAccessToken{attackerToken, vaultToken}, entry, vaultID)
+
+	require.NoError(t, err)
+	assert.True(t, got)
 }
 
 func projectTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.ProjectAccessToken {

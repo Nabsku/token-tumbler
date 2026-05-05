@@ -44,12 +44,27 @@ func TestCheckGroupTokensForRenewal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := CheckGroupTokensForRenewal(tt.tokens, entry)
+			got, err := CheckGroupTokensForRenewal(tt.tokens, entry, 0)
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestCheckGroupTokensForRenewal_WithVaultTokenIDOnlyCountsPersistedActiveToken(t *testing.T) {
+	entry := &repository.Repository{RotationThreshold: &repository.Duration{Duration: 48 * time.Hour}}
+
+	vaultID := int64(1)
+	vaultToken := groupTokenWithExpiry(t, time.Now().Add(24*time.Hour))
+	vaultToken.ID = vaultID
+	attackerToken := groupTokenWithExpiry(t, time.Now().Add(14*24*time.Hour))
+	attackerToken.ID = 2
+
+	got, err := CheckGroupTokensForRenewal([]*gitlab.GroupAccessToken{attackerToken, vaultToken}, entry, vaultID)
+
+	require.NoError(t, err)
+	assert.True(t, got)
 }
 
 func groupTokenWithExpiry(t *testing.T, expiry time.Time) *gitlab.GroupAccessToken {

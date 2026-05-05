@@ -9,6 +9,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Maintenance
 
+- Doc changes ([d95f04e](https://github.com/Nabsku/token-tumbler/commit/d95f04e062b43e8a8408bfee5b70873a44b60531))
+
 - Bumped multiple deps ([44a081a](https://github.com/Nabsku/token-tumbler/commit/44a081a7248888e0960a03bef406025908800cc8))
 
 - Bump the go-dependencies group with 3 updates ([14500f6](https://github.com/Nabsku/token-tumbler/commit/14500f6cb96a87781a922559117ec5738503d28b))

@@ -168,7 +168,7 @@ func processGroupTokens(ctx context.Context, gitlabClient *gitlab.Client, entry 
 		groupToken = token
 	}
 
-	needsRenewal, err := group.CheckGroupTokensForRenewal(tokenQueue, entry)
+	needsRenewal, err := group.CheckGroupTokensForRenewal(tokenQueue, entry, vaultTokenID)
 	if err != nil {
 		metrics.TokenRotations.WithLabelValues("group", entry.Name, store, "error").Inc()
 		return vaultTokenID, fmt.Errorf(errorString, *entry.GroupName, index, err)
@@ -296,7 +296,7 @@ func processProjectTokens(ctx context.Context, gitlabClient *gitlab.Client, entr
 		projectToken = token
 	}
 
-	needsRenewal, err := project.CheckProjectTokensForRenewal(tokenQueue, entry)
+	needsRenewal, err := project.CheckProjectTokensForRenewal(tokenQueue, entry, vaultTokenID)
 	if err != nil {
 		metrics.TokenRotations.WithLabelValues("project", entry.Name, store, "error").Inc()
 		return vaultTokenID, fmt.Errorf(errorString, *entry.RepoName, index, err)
