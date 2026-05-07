@@ -9,6 +9,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Bug fixes
 
+- Refresh Go toolchain and module checksums ([ef076ba](https://github.com/Nabsku/token-tumbler/commit/ef076ba31dd244a1dd2539ee7bce752bcaafb9db))
+
 - Harden pagination collection against runaway loops ([3f9fe8a](https://github.com/Nabsku/token-tumbler/commit/3f9fe8a69ec15604863bfbc3a44535544e7e2e03))
 
 - Harden rollback cleanup to avoid deleting unrelated secret data ([e05c367](https://github.com/Nabsku/token-tumbler/commit/e05c367159c278c9c226b7c9c1f9b2188dc48153))

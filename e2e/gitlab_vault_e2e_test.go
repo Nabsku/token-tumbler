@@ -79,7 +79,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, needsRenewal)
 
-	allNeedRenewal, err := project.CheckProjectTokensForRenewal([]*gitlab.ProjectAccessToken{createdToken}, freshEntry)
+	allNeedRenewal, err := project.CheckProjectTokensForRenewal([]*gitlab.ProjectAccessToken{createdToken}, freshEntry, 0)
 	require.NoError(t, err)
 	assert.False(t, allNeedRenewal)
 
@@ -138,7 +138,7 @@ func TestE2E_GitLabProjectTokenLifecycleWithVault(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, needsRenewal)
 
-	allNeedRenewal, err = project.CheckProjectTokensForRenewal([]*gitlab.ProjectAccessToken{oldRotationToken}, rotateEntry)
+	allNeedRenewal, err = project.CheckProjectTokensForRenewal([]*gitlab.ProjectAccessToken{oldRotationToken}, rotateEntry, 0)
 	require.NoError(t, err)
 	assert.True(t, allNeedRenewal)
 
