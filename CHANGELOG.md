@@ -9,6 +9,8 @@ This project follows semantic versioning for tagged releases where practical.
 
 ### Bug fixes
 
+- Harden pagination collection against runaway loops ([3f9fe8a](https://github.com/Nabsku/token-tumbler/commit/3f9fe8a69ec15604863bfbc3a44535544e7e2e03))
+
 - Harden rollback cleanup to avoid deleting unrelated secret data ([e05c367](https://github.com/Nabsku/token-tumbler/commit/e05c367159c278c9c226b7c9c1f9b2188dc48153))
 
 - Prevent leader-election shutdown overlap before lease handoff ([65af95b](https://github.com/Nabsku/token-tumbler/commit/65af95b851d8ef5aeb9c049b1a56f1207f2b515b))
