@@ -19,9 +19,9 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/vault v0.42.0
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	go.uber.org/zap v1.28.0
-	k8s.io/api v0.36.0
-	k8s.io/apimachinery v0.36.0
-	k8s.io/client-go v0.36.0
+	k8s.io/api v0.36.1
+	k8s.io/apimachinery v0.36.1
+	k8s.io/client-go v0.36.1
 )
 
 require (
